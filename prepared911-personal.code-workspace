@@ -1,0 +1,34 @@
+{
+  "folders": [
+    {
+      "name": "prepared911",
+      "path": "/Users/ckark/Documents/GitHub/prepared911"
+    },
+    {
+      "name": "axon911-frontend",
+      "path": "/Users/ckark/Documents/GitHub/axon911-frontend"
+    },
+    {
+      "name": "vault-core-ux",
+      "path": "/Users/ckark/Documents/GitHub/vault-core-ux"
+    },
+    {
+      "name": "personal-harness",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/node_modules": true
+    },
+    "search.exclude": {
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/node_modules": true,
+      "**/coverage": true,
+      "**/dist": true
+    }
+  }
+}

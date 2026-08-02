@@ -1,0 +1,93 @@
+---
+alwaysApply: true
+---
+
+# Prepared911 Personal Workspace
+
+This multi-root workspace contains:
+
+- `prepared911`: application repository and project source of truth
+- `axon911-frontend`: related frontend source and package history
+- `vault-core-ux`: related design-system source and package history
+- `personal-harness`: private orchestration, critics, and review contracts
+
+## Resolve roots
+
+Before reviewing or editing, locate the Prepared911 root by finding all of:
+
+- `AGENTS.md`
+- `turbo/AGENTS.md`
+- `turbo/apps/docs/AGENTS.md`
+- `turbo/packages/ui-core/package.json`
+
+Do not assume the current shell directory is the Prepared911 root.
+
+Locate the personal harness root by finding:
+
+- `docs/review-contract.md`
+- `.cursor/skills/adversarial-review/SKILL.md`
+
+## Source priority
+
+Prepared911 repository instructions, public APIs, tests, generated API data,
+and actual behavior take precedence over personal harness guidance. The
+personal harness coordinates repository skills; it does not redefine project
+coding standards.
+
+When a task explicitly targets `axon911-frontend` or `vault-core-ux`, read and
+follow that repository's own `AGENTS.md` and local instructions. Never assume
+Prepared911-specific implementation rules apply unchanged to another root.
+
+All three repository roots are eligible read/write implementation targets:
+
+- `prepared911`
+- `axon911-frontend`
+- `vault-core-ux`
+
+Before editing, identify the target root or roots from the user's request and
+read each target repository's instructions. If the target is genuinely
+ambiguous and choosing incorrectly would change repository state, ask which
+root to modify.
+
+Do not copy code between repositories without checking ownership, API
+compatibility, licensing, and repository-specific rules.
+
+## Plan and implementation contracts
+
+- Implementation plans follow `docs/plan-contract.md`. Prefer `/plan-check`
+  before implementing. Use `/adversarial-review mode=plan` for `T2` plans.
+- Implementation tasks follow `docs/implementation-contract.md`: resolve the
+  root, run affected verification, fix every instance at the shared layer,
+  attach rendered evidence for user-visible changes, and dispatch a
+  fresh-context review at the blast-radius tier the change requires.
+- Blast-radius tiers (`T0` / `T1` / `T2`) are defined in
+  `docs/routing-matrix.md` and judged by callers, not file counts.
+
+## Formal review
+
+For a formal plan or implementation review, invoke `adversarial-review`.
+Review critics and the adjudicator are read-only. Fixes require a separate task.
+Do not run the full critic panel for ordinary implementation work unless the
+user asks for a formal review or explicitly invokes `/adversarial-review`.
+Ordinary changes still need a fresh-context pass at their tier; authoring-
+context self-review is not enough.
+
+The design-system and frontend-architecture critics must benchmark against:
+
+- `turbo/apps/docs/mdx/design`
+- `turbo/apps/docs/mdx/engineering`
+- `turbo/apps/docs/generated/component-api-registry.json`
+- Relevant docs app source and rendered examples
+
+Do not apply Next.js-only guidance from the docs app to Vite applications.
+
+## Safety
+
+- Do not modify `personal-harness` during an implementation task unless the
+  user explicitly asks to update the harness.
+- Do not modify `prepared911` during a review-only task.
+- Preserve all pre-existing changes in every repository, especially dirty
+  working trees.
+- Before implementation in any repository, follow that repository's branch and
+  worktree policy.
+- Report the workspace root containing every modified file.
