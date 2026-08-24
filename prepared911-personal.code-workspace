@@ -5,16 +5,15 @@
       "path": "/Users/ckark/Documents/GitHub/prepared911"
     },
     {
-      "name": "axon911-frontend",
-      "path": "/Users/ckark/Documents/GitHub/axon911-frontend"
-    },
-    {
       "name": "vault-core-ux",
       "path": "/Users/ckark/Documents/GitHub/vault-core-ux"
     },
     {
       "name": "personal-harness",
       "path": "."
+    },
+    {
+      "path": "../../GitHub/axon911-frontend"
     }
   ],
   "settings": {
