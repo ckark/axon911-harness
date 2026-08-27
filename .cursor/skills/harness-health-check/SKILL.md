@@ -29,6 +29,7 @@ Do not modify files or run mutating commands.
    - `docs/routing-matrix.md`
    - `docs/plan-contract.md`
    - `docs/implementation-contract.md`
+   - `docs/axon911-agents.md` (deferred; not a live workspace root)
    - `.cursor/skills/adversarial-review/SKILL.md`
    - `.cursor/skills/plan-check/SKILL.md`
    - All files linked from the adversarial-review skill under `references/`

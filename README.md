@@ -14,6 +14,10 @@ inspection without adding personal agent files to any repository.
   an eligible read/write knowledge root.
 - `personal-harness`: private critics, review contracts, and orchestration.
 
+`axon911-agents` is cloned nearby and is not a live workspace root. See
+`docs/axon911-agents.md` for how to use it as a local overlay and what not to
+merge into Eve.
+
 Each repository's own instructions and behavior take precedence for work in
 that repository. An implementation task must identify its target root or roots
 before editing.
@@ -128,6 +132,8 @@ must satisfy `docs/implementation-contract.md`.
 - Update `docs/review-contract.md` before changing report fields or verdicts.
 - Update `docs/plan-contract.md` or `docs/implementation-contract.md` when
   plan or done definitions change.
+- Keep `docs/axon911-agents.md` current if the Eve agents clone or overlay
+  rules change. Do not mount that repo until wiring is explicitly requested.
 - Keep contextual repository facts in
   `.cursor/skills/adversarial-review/references/`; do not create a registered
   skill for every topic.
