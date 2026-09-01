@@ -75,15 +75,29 @@ Do not modify files or run mutating commands.
    - `.cursor/agents/implementation-verifier.md`
    - `automations/pr-verification/config.json` with `status: dormant`
    - `.gitignore` ignores `.harness/runtime/`
-4h. If `.harness/runtime/scope-probe.json` exists, verify it with
-    `python3 harness/scope_probe.py verify-report` and report the
-    measured `enforcement_scope`. Missing sibling-root fires are a documented
-    limitation, not a pass.
+4h. Absence of `.harness/runtime/scope-probe.json` is not a fail; skip
+    verification and do not treat missing sibling-root fires as a pass. If
+    that report exists, verify it as its own command (do not chain `git
+    status`) and report `enforcement_scope`:
+
+    ```bash
+    python3 harness/scope_probe.py verify-report \
+      .harness/runtime/scope-probe.json \
+      --attempted-root personal-harness \
+      --attempted-root prepared911 \
+      --attempted-root axon911-frontend \
+      --attempted-root vault-core-ux
+    ```
+
+    `verify-report` requires the positional report path and at least one
+    `--attempted-root`. Missing sibling-root fires after a bounded window are
+    a documented limitation, not a pass.
 4i. Confirm Cursor exposes `implementation-check` and
     `implementation-verifier` in addition to the review panel.
 4j. Confirm Cursor wiring from `docs/cursor-onboarding.md`:
     `python3 .cursor/hooks/runtime_gate.py benchmark --json` reports
-    `history_independent: true`. Do not use `--help` as a probe.
+    `history_independent: true`. Do not use `--help` as a probe. Do not chain
+    this with `git status`; check 7 is a separate single command.
 5. Report whether Cursor exposes:
    - `adversarial-review`
    - `plan-check`
@@ -95,7 +109,8 @@ Do not modify files or run mutating commands.
    - `review-adjudicator`
 6. Inspect Prepared911 `.cursor/mcp.json` and report the configured MCP server
    names without printing credentials or environment values.
-7. Run only `git status --short --branch` in each repository root.
+7. Run only `git status --short --branch` in each repository root. One
+    repository per command; never combine roots or chain with check 4j.
 8. Report pre-existing dirty working trees without printing unnecessarily large
    diffs.
 9. Confirm that no files changed during the health check.

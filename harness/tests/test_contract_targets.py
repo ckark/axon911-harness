@@ -104,6 +104,27 @@ class ContractTargetTests(unittest.TestCase):
         self.assertNotIn("Source priority", text)
         self.assertNotIn("turbo/apps/docs", text)
 
+    def test_health_check_verify_report_names_required_cli_args(self) -> None:
+        """`scope_probe.py verify-report` takes a positional report path and
+        `--attempted-root` (repeatable). A health-check that omits either tells
+        an agent to run a command that argparse rejects."""
+        required = (
+            "verify-report",
+            ".harness/runtime/scope-probe.json",
+            "--attempted-root",
+            "personal-harness",
+            "prepared911",
+            "axon911-frontend",
+            "vault-core-ux",
+        )
+        for relpath in (
+            ".cursor/skills/harness-health-check/SKILL.md",
+            "skills/harness-health-check/SKILL.md",
+        ):
+            text = _read(relpath)
+            missing = [token for token in required if token not in text]
+            self.assertEqual(missing, [], "%s omitted verify-report args: %s" % (relpath, missing))
+
     def test_documented_command_paths_resolve(self) -> None:
         """Every runnable path a doc tells a reader to type must exist.
 
