@@ -118,6 +118,41 @@ class CliTierAgainstTests(unittest.TestCase):
         # though the file list (from --against) is the same.
         self.assertEqual(report["surface_delta"], "none")
 
+    def test_scores_the_worktree_the_changes_are_in(self) -> None:
+        """`HARNESS_ROOTS_JSON` names one static path per root, but work
+        happens in linked worktrees. Collecting changed files from the
+        worktree and then diffing them in the configured checkout -- where
+        those same files are untouched -- reports `none` for every surface
+        change and collapses every tier to T0."""
+        worktree = os.path.join(self.tmp, "axon-feature-worktree")
+        _git(self.axon, "worktree", "add", "-q", "-b", "feature-wt", worktree, "HEAD")
+        # An uncommitted new export, present only in the linked worktree.
+        _write(
+            worktree,
+            "packages/ui-core/src/components/menu/menu-exports.ts",
+            'export { Menu } from "./index";\n'
+            'export { NewThing } from "./new-thing";\n'
+            'export { WorktreeOnly } from "./worktree-only";\n',
+        )
+        _write(
+            worktree,
+            "packages/ui-core/src/components/menu/worktree-only.tsx",
+            "export const WorktreeOnly = () => null;\n",
+        )
+
+        result = subprocess.run(
+            [sys.executable, os.path.join(HARNESS, "cli.py"), "tier", "--root", "axon911-frontend", "--json"],
+            cwd=worktree,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=self.env,
+        )
+        report = json.loads(result.stdout)
+        self.assertEqual(report["surface_delta"], "additive")
+        self.assertEqual(report["tier"], "T1")
+        self.assertTrue(any("WorktreeOnly" in item for item in report["evidence"]))
+
 
 if __name__ == "__main__":
     unittest.main()

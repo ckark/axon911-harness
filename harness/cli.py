@@ -228,11 +228,18 @@ def cmd_tier(argv: Sequence[str]) -> int:
     all_roots = configured()
     selected = args.root or [r for r in all_roots if r != "personal-harness"]
     changes = {}
+    # Score against the worktree the changed files actually came from. `configured()`
+    # holds one static path per root, so on a linked worktree the file list would be
+    # collected here and then diffed somewhere else -- where those same files are
+    # untouched, making every surface delta read as `none` and every tier collapse
+    # to T0.
+    scoring_roots = dict(all_roots)
     for root_id in selected:
         if root_id not in all_roots:
             sys.stderr.write("tier: unknown root %s\n" % root_id)
             return 2
         root_path = resolve_cli_root(root_id)
+        scoring_roots[root_id] = root_path
         try:
             if args.against:
                 result = subprocess.run(
@@ -258,7 +265,7 @@ def cmd_tier(argv: Sequence[str]) -> int:
         base_ref = args.against
     else:
         base_ref = "HEAD"
-    computed = compute_tier(changes, all_roots, base_ref=base_ref, stated=args.stated)
+    computed = compute_tier(changes, scoring_roots, base_ref=base_ref, stated=args.stated)
     verdict = reconcile(computed, args.stated)
     report = {
         "tier": computed["tier"],
