@@ -91,13 +91,25 @@ For every finding provide:
 
 ## Docs benchmark
 
+The primary benchmark is axon911-frontend's docs app, which documents the
+packages axon911-frontend owns:
+
+- `apps/docs/mdx/design`
+- `apps/docs/mdx/engineering`
+- `apps/docs/generated/component-api-registry.json`
+
+prepared911's `turbo/apps/docs` is a secondary benchmark until its removal
+lands. Where the two disagree about `@prepared/ui-*`, axon911-frontend is
+correct and the divergence is a `DOCS-DRIFT-###` finding, not a judgment call.
+
 The design-system and frontend-architecture reports must include:
 
 ```markdown
 ## Docs Benchmark
 
 ### Sources Consulted
-- `turbo/apps/docs/...`
+- `apps/docs/...` (axon911-frontend, primary)
+- `turbo/apps/docs/...` (prepared911, secondary — only when relevant)
 
 ### Comparison
 
@@ -120,14 +132,33 @@ report.
 
 ## Source priority
 
+For anything `@prepared/ui-*`, design-token, or shared-frontend-architecture
+shaped, axon911-frontend is authoritative regardless of which root the target
+lives in. Post CORE-754 it owns all 14 `@prepared/ui-*` packages and publishes
+them as `@prepared911/ui-*`; prepared911 consumes the published artifacts and
+its own `turbo/packages/ui-*` copies are slated for removal.
+`axon911-frontend/AGENTS.md:121` and `axon911-frontend/docs/VENDORING.md` state
+this, and both are required reading for the design-system and
+frontend-architecture critics — including VENDORING's three authoring rules:
+fix bugs in axon911-frontend, do not re-sync from prepared911, do not restore
+`SOURCE.md`.
+
+prepared911 remains authoritative for its own application code — dispatch,
+beacon, and the Ruby and Go services.
+
 When evidence conflicts, use:
 
-1. Target repository public API, exports, and actual behavior
-2. Target repository tests and real consumers
-3. Generated API data tied to that source
-4. Target repository documentation and project skills
-5. Cross-repository knowledge and historical notes
-6. Generic framework guidance
+1. axon911-frontend public API, exports, tests, and actual behavior, for
+   `@prepared/ui-*`, design tokens, and shared frontend architecture
+2. Target repository public API, exports, and actual behavior
+3. Target repository tests and real consumers
+4. Generated API data tied to that source
+5. Target repository documentation and project skills
+6. Cross-repository knowledge and historical notes
+7. Generic framework guidance
+
+A prepared911 `turbo/packages/ui-*` implementation that contradicts
+axon911-frontend is drift to report, not a competing source to weigh.
 
 Explain every conflict. Do not silently select a preferred source.
 For multi-root targets, also follow

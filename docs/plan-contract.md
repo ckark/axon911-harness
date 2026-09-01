@@ -74,10 +74,31 @@ Defer root-specific command catalogs to `docs/implementation-contract.md`.
 
 ### Generated-artifact and docs obligations
 
-- Name the specific `turbo/apps/docs` page for every `ui-*` package change.
+- Name the specific docs page for every `ui-*` package change: `apps/docs` in
+  axon911-frontend, `turbo/apps/docs` in prepared911.
 - State whether `ui-components.generated.ts` (or the equivalent generated
   registry for the target root) needs regeneration.
 - State "none" explicitly when neither applies.
+
+### PR body fields, for axon911-frontend targets
+
+`.github/workflows/package-pr-check.yaml` enforces the
+`prBodyRequiredFields` declared in `.changeset/package-release.config.json`
+under a `### Package Release` heading. A plan that already satisfies this
+contract carries every one of them; `/implementation-check` emits the section
+rather than asking for it again:
+
+| PR body field | Plan section it comes from |
+|---|---|
+| Affected packages | Affected consumers |
+| Bump severity | Lockstep decision in the changeset, cross-checked against blast radius and tier |
+| Public API / behavior summary | Changed exports named in the blast-radius section |
+| Migration notes | Deferred and out-of-scope |
+| Cutover impact | Blast radius and tier |
+| Test evidence | Self-authored claim ledger plus attested verification commands |
+
+A plan that cannot fill a field has not established the corresponding section.
+Do not paper over the gap in the PR body.
 
 ### Deferred and out-of-scope
 

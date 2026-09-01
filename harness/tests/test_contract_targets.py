@@ -35,9 +35,20 @@ class ContractTargetTests(unittest.TestCase):
         self.assertNotIn("Review orchestration only", text)
 
     def test_workspace_rule_lists_four_roots(self) -> None:
-        text = _read(".cursor/rules/prepared911-workspace.mdc")
-        self.assertIn("All four workspace roots", text)
+        text = _read("docs/workspace-rule.md")
+        for root in ("axon911-frontend", "prepared911", "vault-core-ux", "personal-harness"):
+            self.assertIn("`%s`" % root, text)
         self.assertIn("docs/runtime-contract.md", text)
+
+    def test_cursor_rule_defers_to_the_shared_workspace_rule(self) -> None:
+        """Both hosts must read one document. A Cursor rule that restates the
+        roots or source priority drifts from `docs/workspace-rule.md` silently,
+        which is how the pre-CORE-754 prepared911-first ordering survived the
+        authority inversion."""
+        text = _read(".cursor/rules/prepared911-workspace.mdc")
+        self.assertIn("docs/workspace-rule.md", text)
+        self.assertNotIn("Source priority", text)
+        self.assertNotIn("turbo/apps/docs", text)
 
 
 if __name__ == "__main__":
