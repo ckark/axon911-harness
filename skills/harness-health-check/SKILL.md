@@ -1,6 +1,6 @@
 ---
 name: harness-health-check
-description: Verifies that the Prepared911 personal multi-root Cursor workspace, repository instructions, project skills, docs benchmark, personal critics, and formal review skill are discoverable. Always read-only.
+description: Verifies that the Axon 911 personal multi-root Cursor workspace, repository instructions, project skills, docs benchmark, personal critics, and formal review skill are discoverable. Always read-only.
 disable-model-invocation: true
 allowed-tools: Read Grep Glob Bash(python3 ${CLAUDE_PLUGIN_ROOT}/harness/*) Bash(git *) Bash(claude plugin *)
 ---
@@ -19,13 +19,15 @@ Do not modify files or run mutating commands.
 2. Resolve and read:
    - `prepared911/AGENTS.md`
    - `prepared911/turbo/AGENTS.md`
-   - `prepared911/axon911-frontend/apps/docs/AGENTS.md`
-3. Confirm these Prepared911 paths exist:
-   - `.agent/skills/planning-workflow/SKILL.md`
-   - `.agent/skills/react-ui-implementation/SKILL.md`
+   - `axon911-frontend/AGENTS.md`
+   - `docs/workspace-rule.md` in the personal harness
+3. Confirm these axon911-frontend (primary) and Prepared911 paths exist:
    - `axon911-frontend/apps/docs/mdx/design`
    - `axon911-frontend/apps/docs/mdx/engineering`
    - `axon911-frontend/apps/docs/generated/component-api-registry.json`
+   - `prepared911/.agent/skills/planning-workflow/SKILL.md`
+   - `prepared911/.agent/skills/react-ui-implementation/SKILL.md`
+   - `prepared911/turbo/apps/docs/mdx/design` (secondary docs benchmark)
 4. Confirm the personal harness contains:
    - `docs/review-contract.md`
    - `docs/routing-matrix.md`

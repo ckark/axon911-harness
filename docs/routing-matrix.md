@@ -85,7 +85,7 @@ critic even when several change signals match; a `T1` review runs two.
 | Forms, modals, navigation, interactive components | Quality/accessibility and design system | Accessibility MDX, stories, semantic tests |
 | Plan affecting public contracts or multiple apps | All critics | Plan references, package graph, migration/rollout strategy |
 | Axon host, remote, federation, or shared-domain change | Frontend architecture; add performance, security, and quality by risk | Axon `AGENTS.md`, triggered MFE/Vite/router skills, shell/remote contract and failure UI |
-| Axon vendored `@prepared/ui-*` change | Design system, frontend architecture, quality/accessibility | Package provenance, exports, Prepared911 docs benchmark, Axon consumers |
+| Axon vendored `@prepared/ui-*` change | Design system, frontend architecture, quality/accessibility | Package provenance, exports, axon911-frontend `apps/docs` benchmark (prepared911 `turbo/apps/docs` only as secondary), Axon consumers |
 | Vault architecture or standard update | Relevant domain critic and adjudicator | Note frontmatter, linked architecture index, runtime sources supporting any implementation claim |
 | Contract spanning Prepared911 and Axon | All critics | Separate evidence per root, ownership, versions/exports, producer/consumers, rollout and rollback |
 | Harness runtime, Cursor hooks, review contracts, or always-on workspace rules | Frontend architecture, security/privacy, quality/accessibility; add performance when hooks or ledgers are on a hot path | Runtime contract, event schemas, receipt fingerprints, and measured cross-root scope |

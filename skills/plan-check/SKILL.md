@@ -114,8 +114,10 @@ incomplete without a named predicate — one of `surface-breaking`,
 `risk:<label>`, `cross-root`, `unmeasurable`, or `many-symbols`. If no predicate
 can be cited, the tier drops to what the evidence supports.
 
-`unmeasurable` means the root is a shallow clone and nothing can be scored;
-remediate with `git fetch --unshallow` rather than accepting the T2.
+`unmeasurable` is a verdict about the tree, not the change: the root is a
+shallow clone, has unresolved conflicts, or has an interrupted rebase, merge,
+cherry-pick, or bisect. Remediate it (`git fetch --unshallow`, resolve the
+conflict, finish the rebase) rather than accepting a defensive `T2`.
 
 ## Final response
 

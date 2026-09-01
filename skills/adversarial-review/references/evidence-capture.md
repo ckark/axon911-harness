@@ -207,5 +207,5 @@ The default shell is often zsh. Unquoted variables do not word-split, and
 in `bash -c` and brace-quote paths:
 
 ```bash
-bash -c 'for ref in a b c; do git rev-parse "${ref}:axon911-frontend/apps/docs/vercel.json"; done'
+bash -c 'for ref in a b c; do git rev-parse "${ref}:apps/docs/vercel.json"; done'
 ```

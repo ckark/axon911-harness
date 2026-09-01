@@ -1,9 +1,9 @@
 ---
 name: harness-health-check
-description: Verifies that the Prepared911 personal multi-root Cursor workspace, repository instructions, project skills, docs benchmark, personal critics, and formal review skill are discoverable. Always read-only.
+description: Verifies that the Axon 911 personal multi-root Cursor workspace, repository instructions, project skills, docs benchmark, personal critics, and formal review skill are discoverable. Always read-only.
 ---
 
-# Prepared911 Harness Health Check
+# Axon 911 Harness Health Check
 
 Do not modify files or run mutating commands.
 

@@ -1,9 +1,9 @@
 ---
 name: adversarial-review
-description: Runs independent Prepared911 design-system, frontend architecture, performance/reliability, security/privacy, and quality/accessibility reviews against a plan or implementation, followed by evidence-based adjudication. Use for formal review gates.
+description: Runs independent Axon 911 design-system, frontend architecture, performance/reliability, security/privacy, and quality/accessibility reviews against a plan or implementation, followed by evidence-based adjudication. Use for formal review gates.
 ---
 
-# Prepared911 Adversarial Review
+# Axon 911 Adversarial Review
 
 This skill performs a read-only formal review. It never applies fixes.
 
@@ -192,7 +192,8 @@ final response records the reason. Do not show specialists one another's
 reports during this phase.
 
 The design-system and frontend-architecture critics must benchmark against the
-Prepared911 docs app. Their reports are invalid without `Docs Benchmark`.
+axon911-frontend docs app, which owns the `@prepared/ui-*` surface post
+CORE-754. Their reports are invalid without `Docs Benchmark`.
 
 ## Phase 4: Validate reports (blocking gate)
 

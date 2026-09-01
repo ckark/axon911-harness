@@ -1,6 +1,6 @@
 ---
 name: adversarial-review
-description: Runs independent Prepared911 design-system, frontend architecture, performance/reliability, security/privacy, and quality/accessibility reviews against a plan or implementation, followed by evidence-based adjudication. Use for formal review gates.
+description: Runs independent Axon 911 design-system, frontend architecture, performance/reliability, security/privacy, and quality/accessibility reviews against a plan or implementation, followed by evidence-based adjudication. Use for formal review gates.
 disable-model-invocation: true
 argument-hint: [mode=plan|implementation] [target=<ref-range|plan file>] [scope=...] [tier=T0|T1|T2]
 allowed-tools: Read Grep Glob Bash(python3 ${CLAUDE_PLUGIN_ROOT}/harness/*) Bash(git *)

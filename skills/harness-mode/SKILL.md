@@ -55,8 +55,10 @@ call-site counts, and it names the one predicate that produced it. Do not assert
 a tier; read it. `T0` is one critic, `T1` two, `T2` the signal-selected panel
 plus adjudication (`${CLAUDE_PLUGIN_ROOT}/docs/routing-matrix.md`).
 
-If the tier comes back `unmeasurable`, the root is a shallow clone: run
-`git fetch --unshallow` rather than accepting a defensive `T2`.
+If the tier comes back `unmeasurable`, the tree cannot be scored: a shallow
+clone, unresolved conflicts, or an interrupted rebase, merge, cherry-pick, or
+bisect. Remediate it (`git fetch --unshallow`, resolve the conflict, finish the
+rebase) rather than accepting a defensive `T2`.
 
 ## 4. Know what your verification actually covers
 

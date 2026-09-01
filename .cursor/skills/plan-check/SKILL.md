@@ -3,7 +3,7 @@ name: plan-check
 description: Cheap plan gate that verifies a plan against the personal plan contract — ref manifest and claim ledger only, no critics or adjudicator. Use before implementing or before /adversarial-review mode=plan for T2 plans.
 ---
 
-# Prepared911 Plan Check
+# Axon 911 Plan Check
 
 This skill is read-only. It never applies fixes and never launches critics.
 
@@ -79,12 +79,43 @@ commands over inventing new ones.
 
 ## Phase 4: Score blast radius and tier
 
-1. Re-run the blast-radius recipe from `evidence-capture.md` for changed
-   exports named by the plan.
-2. Compare the importer counts to the plan's stated tier.
-3. A `T0` classification without an importer count is incomplete.
-4. Understatement of tier (plan says `T0`, recipe shows broad callers or a
-   public `ui-*` export) is a plan-contract defect.
+Tier is **computed**, not argued. Run the following from the harness checkout
+root, since the script path is relative:
+
+```bash
+python3 harness/cli.py tier \
+  --root <root> --base-ref <merge-base> --stated <plan tier> --json
+```
+
+The command reports the tier, the single predicate that produced it, and the
+evidence for that predicate. Exit status is non-zero when the plan's stated tier
+disagrees with the computed one in **either** direction.
+
+Report all of:
+
+1. Computed tier and its named predicate.
+2. The plan's stated tier and the reconciliation verdict: `match`,
+   `understated`, `overstated`, or `unstated`.
+3. The surface delta (`none` / `additive` / `breaking`) and the call-site counts.
+
+Both directions are plan-contract defects:
+
+- **Understated** — the plan claims a narrower tier than the evidence supports.
+  The review runs at the computed tier regardless.
+- **Overstated** — the plan claims a broader tier than the evidence supports.
+  This is not a harmless safety margin: it burns a full panel on a leaf change,
+  and a tier that is always `T2` carries no information, which is how the
+  hierarchy stopped meaning anything in the first place.
+
+A `T0` claim is incomplete without the printed call-site count. A `T2` claim is
+incomplete without a named predicate — one of `surface-breaking`,
+`risk:<label>`, `cross-root`, `unmeasurable`, or `many-symbols`. If no predicate
+can be cited, the tier drops to what the evidence supports.
+
+`unmeasurable` is a verdict about the tree, not the change: the root is a
+shallow clone, has unresolved conflicts, or has an interrupted rebase, merge,
+cherry-pick, or bisect. Remediate it (`git fetch --unshallow`, resolve the
+conflict, finish the rebase) rather than accepting a defensive `T2`.
 
 ## Final response
 

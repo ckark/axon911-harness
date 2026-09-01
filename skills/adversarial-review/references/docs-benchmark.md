@@ -1,6 +1,12 @@
-# Prepared911 Docs Benchmark
+# Axon 911 Docs Benchmark
 
 Required for design-system and frontend-architecture critics.
+
+The primary benchmark is axon911-frontend's docs app, which documents the
+packages axon911-frontend owns post CORE-754. prepared911's `turbo/apps/docs`
+is secondary until its removal lands. Where the two disagree about
+`@prepared/ui-*`, axon911-frontend is correct and the divergence is a
+`DOCS-DRIFT-###` finding, not a judgment call.
 
 ## Route to the smallest relevant docs slice
 
@@ -17,6 +23,7 @@ Required for design-system and frontend-architecture critics.
 - Generated public surface:
   `axon911-frontend/apps/docs/generated/component-api-registry.json`
 - Concrete docs consumer: relevant files under `app`, `features`, and `common`
+- Secondary prepared911 slice (only when relevant): `turbo/apps/docs/...`
 
 For a documented component, inspect `usage.mdx`, `api-dev.mdx`, and
 `accessibility.mdx` when present. Then compare those claims with package

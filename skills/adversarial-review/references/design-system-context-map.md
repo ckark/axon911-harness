@@ -2,7 +2,7 @@
 
 Load only rows triggered by the target.
 
-| Signal | Prepared911 sources | Additional context | Verification |
+| Signal | Primary sources (axon911-frontend owns `@prepared/ui-*`) | Additional context | Verification |
 |---|---|---|---|
 | Tokens, themes, raw color/spacing/type values | `ui-core`, `axon911-frontend/apps/docs/mdx/design/foundations`, token catalogs, theme source, `ui-core` styles | `css-best-practices`; Vault UI standards when intent is relevant | Theme/brand variants, contrast, generated docs |
 | Primitive or public component API | Matching `usage.mdx`, `api-dev.mdx`, `accessibility.mdx`; package source, exports, tests, stories in `ui-core` | `react-ui-implementation`, `typescript-style`; Axon consumer when affected | Public import, typecheck, story interaction, accessibility |
