@@ -196,6 +196,7 @@ def cmd_benchmark(argv: Sequence[str]) -> int:
 def cmd_tier(argv: Sequence[str]) -> int:
     """Score the blast-radius tier of the current changes in a root."""
     import argparse
+    import subprocess
 
     from dispatch.common import roots as configured
     from lib.fingerprint import changed_paths
@@ -203,7 +204,23 @@ def cmd_tier(argv: Sequence[str]) -> int:
 
     parser = argparse.ArgumentParser(prog="tier")
     parser.add_argument("--root", action="append", default=[])
-    parser.add_argument("--base-ref", default="HEAD")
+    # No default here: "HEAD" is a legitimate explicit value as well as the
+    # eventual fallback, so telling "not passed" apart from "explicitly HEAD"
+    # needs a real sentinel, not a string that could be either.
+    parser.add_argument("--base-ref", default=None)
+    parser.add_argument(
+        "--against",
+        default=None,
+        metavar="REF",
+        help=(
+            "Score the full branch diff against REF (merge-base relative, "
+            "like the plan contract's ref manifest) instead of only the "
+            "uncommitted worktree. Live hook gating never passes this: it "
+            "always scores the current uncommitted edit, which is what a "
+            "PreToolUse or Stop check actually needs. This is for auditing "
+            "a complete branch before a PR, once its commits already exist."
+        ),
+    )
     parser.add_argument("--stated", default=None)
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args(argv)
@@ -215,12 +232,33 @@ def cmd_tier(argv: Sequence[str]) -> int:
         if root_id not in all_roots:
             sys.stderr.write("tier: unknown root %s\n" % root_id)
             return 2
+        root_path = resolve_cli_root(root_id)
         try:
-            changes[root_id] = changed_paths(resolve_cli_root(root_id))
+            if args.against:
+                result = subprocess.run(
+                    ["git", "diff", "--name-only", "%s...HEAD" % args.against],
+                    cwd=root_path,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    timeout=10,
+                )
+                changes[root_id] = [line for line in result.stdout.splitlines() if line.strip()]
+            else:
+                changes[root_id] = changed_paths(root_path)
         except Exception:
             changes[root_id] = []
 
-    computed = compute_tier(changes, all_roots, base_ref=args.base_ref, stated=args.stated)
+    # Precedence: an explicit --base-ref always wins (even "HEAD"); otherwise
+    # the surface diff compares against the same ref the changed-file list
+    # came from (--against); otherwise the live-gating default.
+    if args.base_ref is not None:
+        base_ref = args.base_ref
+    elif args.against:
+        base_ref = args.against
+    else:
+        base_ref = "HEAD"
+    computed = compute_tier(changes, all_roots, base_ref=base_ref, stated=args.stated)
     verdict = reconcile(computed, args.stated)
     report = {
         "tier": computed["tier"],

@@ -178,11 +178,72 @@ def interrupted_operation(root_path: str, git: Optional[GitRunner] = None) -> st
     return ""
 
 
-def surface_paths(root_id: str, changed: Iterable[str]) -> List[str]:
+WILDCARD_REEXPORT_RE = re.compile(r'export\s+\*\s+from\s+["\']([^"\']+)["\']')
+
+# packages/<pkg>/src/index.ts wildcard re-exports several `<family>-exports.ts`
+# barrels (menu, context-menu, ...) instead of naming every export directly.
+# Adding or removing a name inside one of those barrels is a real surface
+# change, but it never touches index.ts itself -- the `export * from "./x"`
+# line is written once when the family is created, not per member. Detected
+# by parsing index.ts rather than hardcoding barrel filenames, since the
+# convention is not limited to files literally named `*-exports.ts`.
+_WILDCARD_TARGET_CACHE: Dict[str, List[str]] = {}
+
+
+def _package_index_path(root_id: str, path: str) -> str:
+    """The owning package's own `src/index.ts`, relative to the root, or ''."""
+    marker = "turbo/packages/" if root_id == "prepared911" else "packages/"
+    if marker not in path:
+        return ""
+    prefix = path[: path.index(marker) + len(marker)]
+    package = path[len(prefix) :].split("/", 1)[0]
+    return "%s%s/src/index.ts" % (prefix, package)
+
+
+def _wildcard_reexport_targets(root_path: str, index_rel: str) -> List[str]:
+    cache_key = "%s\0%s" % (root_path, index_rel)
+    if cache_key in _WILDCARD_TARGET_CACHE:
+        return _WILDCARD_TARGET_CACHE[cache_key]
+    targets: List[str] = []
+    try:
+        with open(os.path.join(root_path, index_rel), "r", encoding="utf-8") as handle:
+            content = handle.read()
+    except OSError:
+        _WILDCARD_TARGET_CACHE[cache_key] = targets
+        return targets
+    base = os.path.dirname(index_rel)
+    for match in WILDCARD_REEXPORT_RE.finditer(content):
+        spec = match.group(1)
+        if not spec.startswith("."):
+            continue
+        resolved = os.path.normpath(os.path.join(base, spec))
+        for suffix in (".ts", ".tsx", "/index.ts", "/index.tsx"):
+            candidate = (resolved + suffix).replace(os.sep, "/")
+            if os.path.isfile(os.path.join(root_path, candidate)):
+                targets.append(candidate)
+                break
+    _WILDCARD_TARGET_CACHE[cache_key] = targets
+    return targets
+
+
+def _is_wildcard_reexported(root_id: str, root_path: str, path: str) -> bool:
+    index_rel = _package_index_path(root_id, path)
+    if not index_rel or path == index_rel:
+        return False
+    return path in _wildcard_reexport_targets(root_path, index_rel)
+
+
+def surface_paths(
+    root_id: str, changed: Iterable[str], root_path: Optional[str] = None
+) -> List[str]:
     patterns = [re.compile(p) for p in SURFACE_PATTERNS.get(root_id, ())]
-    return sorted(
-        path for path in changed if any(pattern.search(path) for pattern in patterns)
-    )
+    changed = list(changed)
+    direct = {path for path in changed if any(pattern.search(path) for pattern in patterns)}
+    if root_path:
+        direct.update(
+            path for path in changed if _is_wildcard_reexported(root_id, root_path, path)
+        )
+    return sorted(direct)
 
 
 def risk_signals(changed: Iterable[str]) -> List[str]:
@@ -276,7 +337,7 @@ def classify_surface(
 ) -> Dict[str, object]:
     """Classify the public-surface delta as none, additive, or breaking."""
     runner = git or _default_git
-    paths = surface_paths(root_id, changed)
+    paths = surface_paths(root_id, changed, root_path)
     delta = DELTA_NONE
     evidence: List[str] = []
     symbols: List[str] = []
@@ -384,9 +445,9 @@ def _is_mirror_of(owning_root: str, entry_root: str, path: str) -> bool:
     return bool(pattern and re.search(pattern, path))
 
 
-def _is_surface_file(root_id: str, path: str) -> bool:
+def _is_surface_file(root_id: str, path: str, root_path: Optional[str] = None) -> bool:
     """True for export surfaces (barrels, export maps, models, published styles)."""
-    return bool(surface_paths(root_id, [path]))
+    return bool(surface_paths(root_id, [path], root_path))
 
 
 def _owning_package(root_id: str, path: str) -> str:
@@ -457,7 +518,7 @@ def importer_counts(
             entry_root, entry_path = entry.split(":", 1)
             if entry in excluded:
                 continue
-            if _is_surface_file(entry_root, entry_path):
+            if _is_surface_file(entry_root, entry_path, roots.get(entry_root)):
                 continue
             if NON_API_FILE_RE.search(entry_path):
                 continue

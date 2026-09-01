@@ -326,5 +326,95 @@ class TierScoringTests(unittest.TestCase):
         self.assertIn("Button", names)
 
 
+class WildcardReexportSurfaceTests(unittest.TestCase):
+    """axon911-frontend organizes larger component families (menu,
+    context-menu, ...) through a `<family>-exports.ts` barrel, wildcard
+    re-exported once from the package's own index.ts:
+
+        // index.ts
+        export * from "./components/menu/menu-exports";
+
+    A member added to or removed from that barrel is a real public-surface
+    change, but it never touches index.ts itself -- the wildcard line is
+    written once, not per member. This is exactly what let a real PR
+    (MenuCollapsibleGroup) score `surface_delta: none` before this fix,
+    understating a genuinely new export as a leaf change.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.mkdtemp()
+        self.axon = os.path.join(self.tmp, "axon911-frontend")
+        os.makedirs(self.axon)
+        _git(self.axon, "init", "-q")
+        _git(self.axon, "config", "user.email", "dev@example.com")
+        _git(self.axon, "config", "user.name", "Dev")
+
+        _write(self.axon, "packages/ui-core/package.json", PACKAGE_JSON)
+        _write(
+            self.axon,
+            "packages/ui-core/src/index.ts",
+            'export * from "./components/menu/menu-exports";\n',
+        )
+        _write(
+            self.axon,
+            "packages/ui-core/src/components/menu/menu-exports.ts",
+            'export { Menu } from "./index";\nexport { MenuGroup } from "./group";\n',
+        )
+        _write(self.axon, "packages/ui-core/src/components/menu/index.tsx", "export const Menu = () => null;\n")
+        _write(self.axon, "packages/ui-core/src/components/menu/group.tsx", "export const MenuGroup = () => null;\n")
+        _git(self.axon, "add", "-A")
+        _git(self.axon, "commit", "-qm", "baseline")
+
+        self.roots = {"axon911-frontend": self.axon, "personal-harness": self.tmp}
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _score(self, changed):
+        return compute_tier({"axon911-frontend": changed}, self.roots, base_ref="HEAD")
+
+    def test_surface_paths_follows_the_wildcard_when_root_path_is_given(self) -> None:
+        barrel = "packages/ui-core/src/components/menu/menu-exports.ts"
+        self.assertEqual(surface_paths("axon911-frontend", [barrel]), [], "no root_path: cannot check")
+        self.assertEqual(surface_paths("axon911-frontend", [barrel], self.axon), [barrel])
+
+    def test_new_export_added_inside_the_barrel_scores_additive(self) -> None:
+        barrel = "packages/ui-core/src/components/menu/menu-exports.ts"
+        _write(
+            self.axon,
+            barrel,
+            'export { Menu } from "./index";\nexport { MenuGroup } from "./group";\n'
+            'export { MenuCollapsibleGroup } from "./collapsible-group";\n',
+        )
+        result = compute_tier({"axon911-frontend": [barrel]}, self.roots, base_ref="HEAD")
+        self.assertEqual(result["surface_delta"], DELTA_ADDITIVE)
+        self.assertEqual(result["tier"], "T1")
+        self.assertTrue(any("MenuCollapsibleGroup" in item for item in result["evidence"]))
+
+    def test_export_removed_from_the_barrel_scores_breaking(self) -> None:
+        barrel = "packages/ui-core/src/components/menu/menu-exports.ts"
+        _write(self.axon, barrel, 'export { Menu } from "./index";\n')
+        result = compute_tier({"axon911-frontend": [barrel]}, self.roots, base_ref="HEAD")
+        self.assertEqual(result["surface_delta"], DELTA_BREAKING)
+        self.assertEqual(result["tier"], "T2")
+        self.assertTrue(any("MenuGroup" in item for item in result["evidence"]))
+
+    def test_index_ts_itself_is_not_double_counted_as_a_wildcard_target(self) -> None:
+        """index.ts must never be treated as its own wildcard-reexport
+        target, or a trivial edit to it would be scored twice."""
+        from lib.tier import _is_wildcard_reexported
+
+        self.assertFalse(
+            _is_wildcard_reexported("axon911-frontend", self.axon, "packages/ui-core/src/index.ts")
+        )
+
+    def test_barrel_is_excluded_from_call_site_counting_like_any_surface_file(self) -> None:
+        from lib.tier import _is_surface_file
+
+        barrel = "packages/ui-core/src/components/menu/menu-exports.ts"
+        self.assertTrue(_is_surface_file("axon911-frontend", barrel, self.axon))
+        self.assertFalse(_is_surface_file("axon911-frontend", barrel))  # no root_path: cannot check
+
+
 if __name__ == "__main__":
     unittest.main()
