@@ -38,11 +38,13 @@ When a task explicitly targets `axon911-frontend` or `vault-core-ux`, read and
 follow that repository's own `AGENTS.md` and local instructions. Never assume
 Prepared911-specific implementation rules apply unchanged to another root.
 
-All three repository roots are eligible read/write implementation targets:
+All four workspace roots are eligible read/write implementation targets:
 
 - `prepared911`
 - `axon911-frontend`
 - `vault-core-ux`
+- `personal-harness` (only when the user explicitly asks to update the harness
+  or the task names harness runtime verification)
 
 Before editing, identify the target root or roots from the user's request and
 read each target repository's instructions. If the target is genuinely
@@ -60,6 +62,8 @@ compatibility, licensing, and repository-specific rules.
   root, run affected verification, fix every instance at the shared layer,
   attach rendered evidence for user-visible changes, and dispatch a
   fresh-context review at the blast-radius tier the change requires.
+- Harness runtime work also follows `docs/runtime-contract.md`. Local hooks
+  provide cooperative assurance, not atomic Git enforcement.
 - Blast-radius tiers (`T0` / `T1` / `T2`) are defined in
   `docs/routing-matrix.md` and judged by callers, not file counts.
 

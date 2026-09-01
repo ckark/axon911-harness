@@ -59,6 +59,21 @@ Do not modify files or run mutating commands.
    and `T2`.
 4f. Confirm the workspace rule binds `docs/plan-contract.md` and
    `docs/implementation-contract.md`.
+4g. Confirm runtime verification assets:
+   - `docs/runtime-contract.md` (cooperative assurance, not tamper-proof)
+   - `.cursor/hooks.json`
+   - `.cursor/hooks/runtime_gate.py`
+   - `.cursor/hooks/scope_probe.py`
+   - `.cursor/skills/implementation-check/SKILL.md`
+   - `.cursor/agents/implementation-verifier.md`
+   - `automations/pr-verification/config.json` with `status: dormant`
+   - `.gitignore` ignores `.cursor/runtime/`
+4h. If `.cursor/runtime/scope-probe.json` exists, verify it with
+    `python3 .cursor/hooks/scope_probe.py verify-report` and report the
+    measured `enforcement_scope`. Missing sibling-root fires are a documented
+    limitation, not a pass.
+4i. Confirm Cursor exposes `implementation-check` and
+    `implementation-verifier` in addition to the review panel.
 5. Report whether Cursor exposes:
    - `adversarial-review`
    - `plan-check`
@@ -78,6 +93,7 @@ Do not modify files or run mutating commands.
     - The workspace rule is always-on.
     - Skills are dynamically discoverable.
     - `/plan-check` is the cheap plan gate (no critics).
+    - `/implementation-check` attests verification and issues review receipts.
     - `/adversarial-review` explicitly requests the formal critic panel.
     - Critics do not run on every ordinary coding request.
     - Ordinary work still requires a fresh-context pass at the resolved tier.

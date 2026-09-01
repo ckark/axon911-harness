@@ -1,0 +1,58 @@
+"""Shared versions and limits for the runtime contract."""
+
+from __future__ import annotations
+
+FINGERPRINT_VERSION = "1"
+OBLIGATION_SCHEMA_VERSION = "1"
+COMMAND_SPEC_VERSION = "1"
+VERIFIER_VERSION = "1"
+LEDGER_VERSION = 1
+MAX_EVENT_BYTES = 65536
+LOCK_TIMEOUT_S = 2.0
+SEGMENT_MAX_BYTES = 10 * 1024 * 1024
+SEGMENT_MAX_AGE_S = 7 * 24 * 60 * 60
+RETENTION_S = 30 * 24 * 60 * 60
+STOP_LOOP_LIMIT = 3
+# axon911-frontend first: it owns @prepared/ui-* post CORE-754 and is the
+# architectural authority for the Axon 911 ecosystem. Membership is what the
+# code checks; the order documents precedence for readers.
+ROOT_IDS = (
+    "axon911-frontend",
+    "prepared911",
+    "vault-core-ux",
+    "personal-harness",
+)
+ALLOWED_PERSISTED_FIELDS = (
+    "version",
+    "kind",
+    "event_id",
+    "obligation_id",
+    "root",
+    "worktree_id",
+    "session_id",
+    "fingerprint",
+    "plan_hash",
+    "status",
+    "exit_status",
+    "duration_ms",
+    "ts",
+    "evidence_pointer",
+    "tier",
+    "critic_id",
+    # Opaque per-invocation subagent correlator from Claude Code's hook input.
+    # Lets a critic's return be tied to its dispatch without trusting its prose.
+    "agent_id",
+    # Root-relative path globs a plan declared as its scope. Metadata about the
+    # plan, not content from it: no diffs, prose, or commands are persisted.
+    "scope",
+    "command_spec_version",
+    "schema_version",
+    "seq",
+    "prev_hash",
+    "receipt_id",
+    "nonce",
+)
+STATUS_PASS = "PASS"
+STATUS_BLOCKED = "BLOCKED"
+STATUS_INCONCLUSIVE = "INCONCLUSIVE"
+RECOVERY_COMMAND = "/implementation-check"

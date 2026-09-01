@@ -1,0 +1,36 @@
+{
+  "name": "a911-harness",
+  "displayName": "Axon 911 Review Harness",
+  "version": "0.1.0",
+  "description": "Personal review harness for the Axon 911 frontend ecosystem: computed blast-radius tiers, contract-driven critics, and runtime verification gates across axon911-frontend, prepared911, and vault-core-ux.",
+  "author": { "name": "Chris Kark" },
+  "license": "UNLICENSED",
+  "keywords": ["review", "verification", "design-system", "axon911", "ui-core"],
+  "hooks": "./hooks/hooks.json",
+  "userConfig": {
+    "axon911_root": {
+      "type": "string",
+      "title": "axon911-frontend path",
+      "description": "Absolute path to the axon911-frontend checkout. Owns @prepared/ui-* post CORE-754 and is the architectural authority.",
+      "default": "/Users/ckark/Documents/GitHub/axon911-frontend"
+    },
+    "prepared911_root": {
+      "type": "string",
+      "title": "prepared911 path",
+      "description": "Absolute path to the prepared911 checkout. Consumes the published @prepared911/ui-* artifacts.",
+      "default": "/Users/ckark/Documents/GitHub/prepared911"
+    },
+    "vault_root": {
+      "type": "string",
+      "title": "vault-core-ux path",
+      "description": "Absolute path to the vault-core-ux knowledge repository.",
+      "default": "/Users/ckark/Documents/GitHub/vault-core-ux"
+    },
+    "attest_rewrite": {
+      "type": "boolean",
+      "title": "Transparently wrap verification commands",
+      "description": "Route recognized verification commands through the attesting wrapper so a forgotten wrapper cannot produce an unrecorded PASS. Disable if it conflicts with another PreToolUse Bash rewriter.",
+      "default": true
+    }
+  }
+}

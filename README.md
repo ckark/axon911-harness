@@ -69,6 +69,25 @@ Cursor Agent normally.
 - Use `/harness-health-check` after setup changes or a Cursor update, not before
   every task.
 
+## Runtime verification
+
+Local Cursor project hooks in this harness provide cooperative assurance
+against accidental early completion and stale evidence. They are not
+tamper-proof, not atomic Git enforcement, and not a security boundary.
+
+- Event ledger and mutation preflight live under `.cursor/hooks/` with
+  registration in `.cursor/hooks.json`.
+- Use `/implementation-check` to attest repository-owned commands and issue
+  review receipts before an Agent-shell commit or push.
+- The recovery command printed by a denied gate is `/implementation-check`.
+- Automatic enforcement is harness-local unless a live four-root scope probe
+  proves otherwise. Product roots still need explicit `/implementation-check`
+  plus optional later PR Automations.
+- Dormant Automation templates live under `automations/pr-verification/`. Do
+  not create live Automations from them until the activation checklist is
+  complete.
+- Runtime state is gitignored under `.cursor/runtime/`.
+
 Examples:
 
 ```text

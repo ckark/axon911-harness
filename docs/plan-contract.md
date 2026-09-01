@@ -14,8 +14,11 @@ List every root the plan will modify:
 - `prepared911`
 - `axon911-frontend`
 - `vault-core-ux`
+- `personal-harness`
 
 Do not claim a root is in scope without identifying at least one path under it.
+Plans that change runtime verification, Cursor hooks, review contracts, or
+harness skills must name `personal-harness` and at least one path under it.
 
 ### Ref manifest
 

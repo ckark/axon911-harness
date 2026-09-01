@@ -1,0 +1,16 @@
+{
+  "status": "dormant",
+  "static_inspect": {
+    "executes_pr_head_code": false,
+    "uses_pr_controlled_install": false,
+    "output": "schema-constrained-sanitized-check-result"
+  },
+  "deep_verify": {
+    "active": false,
+    "isolation_proven": false,
+    "requires_maintainer_label": true,
+    "requires_trusted_same_repository_sha": true,
+    "memory_disabled": true,
+    "personal_oauth_forbidden": true
+  }
+}

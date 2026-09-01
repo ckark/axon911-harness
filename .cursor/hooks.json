@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/runtime_gate.py sessionStart"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/runtime_gate.py afterFileEdit"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": ".cursor/hooks/runtime_gate.py postToolUse"
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": ".cursor/hooks/runtime_gate.py subagentStop",
+        "loop_limit": 3
+      }
+    ],
+    "preCompact": [
+      {
+        "command": ".cursor/hooks/runtime_gate.py preCompact"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/runtime_gate.py beforeShellExecution",
+        "failClosed": true
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/runtime_gate.py stop",
+        "loop_limit": 3
+      }
+    ]
+  }
+}
