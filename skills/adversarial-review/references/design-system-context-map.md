@@ -9,7 +9,7 @@ Load only rows triggered by the target.
 | Composite component or block | `mdx/design/components`, `mdx/design/blocks`, owning `ui-*` package | Package dependency graph and real app consumers | Duplication, ownership, responsive states |
 | Form control | Relevant design docs and package tests | `ui-forms`, `react-forms`, testing skills | Labeling, validation, controlled/uncontrolled behavior |
 | Iconography | Icon package, docs catalog, call sites | Migration history only when the target crosses repos | Accessible name, size/color inheritance, bundle impact |
-| Shared package migration | Package exports, dependents, changelog/migration docs | Axon vendored package comparison; Vault ownership maps | Consumer inventory and compatibility path |
+| Shared package migration | Package exports, dependents, changelog/migration docs | axon911-frontend package comparison; Vault ownership maps | Consumer inventory and compatibility path |
 
 Always classify the artifact before judging it: foundation, primitive,
 component, block, product component, or application-local UI. Require concrete

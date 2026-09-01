@@ -67,6 +67,15 @@ material risk found during review, but escalation now has to name what it found.
 Remediate it (`git fetch --unshallow`, resolve the conflict, finish the rebase)
 rather than accepting a defensive `T2`.
 
+Surface scoring reads the hand-maintained `ui-*` surfaces: package barrels
+(`src/index.ts`), `package.json`, `src/models/`, and `ui-core` styles. Symbols
+come from TypeScript `export` lines. `personal-harness` declares no scored
+surface at all, so a harness change reports `symbols: []` and
+`surface_delta: none` whatever it adds. Read that `0 call site(s)` as **not
+measured** rather than as a measured leaf, and tier harness work from risk,
+cross-root reach, and judgment. `additive` implies `T1` for those `ui-*`
+surfaces, not for a new Python helper.
+
 ## Change signals
 
 Use all five critics for substantial formal reviews (`T2` or broad change
@@ -85,7 +94,7 @@ critic even when several change signals match; a `T1` review runs two.
 | Forms, modals, navigation, interactive components | Quality/accessibility and design system | Accessibility MDX, stories, semantic tests |
 | Plan affecting public contracts or multiple apps | All critics | Plan references, package graph, migration/rollout strategy |
 | Axon host, remote, federation, or shared-domain change | Frontend architecture; add performance, security, and quality by risk | Axon `AGENTS.md`, triggered MFE/Vite/router skills, shell/remote contract and failure UI |
-| Axon vendored `@prepared/ui-*` change | Design system, frontend architecture, quality/accessibility | Package provenance, exports, axon911-frontend `apps/docs` benchmark (prepared911 `turbo/apps/docs` only as secondary), Axon consumers |
+| prepared911 consumption of published `@prepared911/ui-*` (the `turbo/packages/ui-*` mirror routes below, not here) | Design system, frontend architecture, quality/accessibility | Package provenance, exports, axon911-frontend `apps/docs` benchmark (prepared911 `turbo/apps/docs` only as secondary), prepared911 consumers |
 | Vault architecture or standard update | Relevant domain critic and adjudicator | Note frontmatter, linked architecture index, runtime sources supporting any implementation claim |
 | Contract spanning Prepared911 and Axon | All critics | Separate evidence per root, ownership, versions/exports, producer/consumers, rollout and rollback |
 | Harness runtime, Cursor hooks, review contracts, or always-on workspace rules | Frontend architecture, security/privacy, quality/accessibility; add performance when hooks or ledgers are on a hot path | Runtime contract, event schemas, receipt fingerprints, and measured cross-root scope |

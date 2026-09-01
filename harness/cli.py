@@ -97,10 +97,14 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
         tier=args.tier,
     )
     if args.scope:
-        from lib.conformance import register_scope
+        from lib.conformance import normalize_scope, register_scope
 
         register_scope(
-            args.root, current["worktree_id"], current["fingerprint"], args.plan_hash, args.scope
+            args.root,
+            current["worktree_id"],
+            current["fingerprint"],
+            args.plan_hash,
+            normalize_scope(args.scope),
         )
     return 0
 

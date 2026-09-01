@@ -22,6 +22,7 @@ from lib.conformance import (  # noqa: E402
     UNIMPLEMENTED,
     classify,
     evaluate,
+    normalize_scope,
     register_scope,
     summarize,
 )
@@ -52,6 +53,26 @@ class ConformanceTests(unittest.TestCase):
             ["packages/ui-core/src/components/callout/index.tsx"],
         )
         self.assertEqual(result[UNIMPLEMENTED], ["packages/ui-blocks/src/**"])
+
+    def test_comma_joined_scope_becomes_separate_globs(self) -> None:
+        """`--scope 'a/**,b/**'` reads as two globs and must register as two.
+
+        Stored verbatim it is one pattern that matches no path, which blocks
+        with an `unimplemented` entry quoting the whole string back instead of
+        naming the real problem."""
+        self.assertEqual(
+            normalize_scope([".cursor/**,skills/**", " harness/tests/** "]),
+            [".cursor/**", "skills/**", "harness/tests/**"],
+        )
+
+    def test_normalized_scope_classifies_what_the_raw_string_could_not(self) -> None:
+        raw = [".cursor/**,harness/tests/**"]
+        changed = [".cursor/agents/critic.md", "harness/tests/test_x.py"]
+        self.assertEqual(classify(raw, changed)[UNIMPLEMENTED], raw)
+        self.assertEqual(classify(normalize_scope(raw), changed)[UNIMPLEMENTED], [])
+
+    def test_normalize_scope_drops_blanks_and_duplicates(self) -> None:
+        self.assertEqual(normalize_scope(["a/**,,a/**", "  ", "b/**"]), ["a/**", "b/**"])
 
     def test_tests_stories_and_docs_are_never_scope_creep(self) -> None:
         result = classify(

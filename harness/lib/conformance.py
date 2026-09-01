@@ -35,6 +35,23 @@ ALWAYS_IN_SCOPE = (
 )
 
 
+def normalize_scope(values: Sequence[str]) -> List[str]:
+    """Split comma-joined scope arguments into individual globs.
+
+    `--scope` is repeatable, but `--scope 'a/**,b/**'` reads naturally enough
+    that it gets typed anyway. Stored verbatim it becomes one pattern that no
+    path can match, so the mistake surfaces later as an `unimplemented` entry
+    echoing the whole string back rather than as a bad argument.
+    """
+    patterns: List[str] = []
+    for value in values:
+        for part in value.split(","):
+            cleaned = part.strip()
+            if cleaned and cleaned not in patterns:
+                patterns.append(cleaned)
+    return patterns
+
+
 def register_scope(
     root: str,
     worktree_id: str,
