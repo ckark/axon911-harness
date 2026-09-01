@@ -9,7 +9,7 @@ import unittest
 HARNESS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, HARNESS)
 
-from lib.shell_gate import classify  # noqa: E402
+from lib.shell_gate import classify, mutation_cwd  # noqa: E402
 
 
 class ShellGateTests(unittest.TestCase):
@@ -134,3 +134,36 @@ class ShellGateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MutationCwdTests(unittest.TestCase):
+    """The session directory is not the command's directory.
+
+    Resolving the root from the payload cwd alone attributes work in a linked
+    worktree to whichever root the session happens to sit in. That is how a
+    `gt submit` against axon911-frontend came back gated on prepared911's
+    obligations, which made the whole submit path unusable from a worktree.
+    """
+
+    def test_gt_cwd_flag_wins_over_session_directory(self) -> None:
+        self.assertEqual(
+            mutation_cwd("gt submit --cwd /work/tree --stack", "/session/cwd"),
+            "/work/tree",
+        )
+
+    def test_git_dash_c_still_wins(self) -> None:
+        self.assertEqual(
+            mutation_cwd("git -C /work/tree push", "/session/cwd"),
+            "/work/tree",
+        )
+
+    def test_falls_back_to_session_directory_without_an_explicit_one(self) -> None:
+        self.assertEqual(mutation_cwd("git push", "/session/cwd"), "/session/cwd")
+        self.assertEqual(mutation_cwd("gt submit --stack", "/session/cwd"), "/session/cwd")
+
+    def test_a_shell_loop_of_pushes_is_still_denied(self) -> None:
+        """`--cwd` support is not a way around the compound rule: a loop is
+        still unanalyzable and must be written one mutation per command."""
+        verdict = classify("cd /x && for i in a b; do git push origin $i; done")
+        self.assertEqual(verdict["permission"], "deny")
+        self.assertEqual(verdict["reason"], "compound-or-ambiguous-mutation")

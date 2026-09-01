@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 COMPOUND_RE = re.compile(r"(&&|\|\||;|\n|`|\$\()")
 # A single- or double-quoted span, respecting backslash escapes. Stripped
@@ -60,16 +60,38 @@ def _git_invocation(command: str) -> Optional[str]:
     return text if text.startswith("git") else None
 
 
+def _explicit_directory(tokens: Sequence[str], flag: str) -> str:
+    for index, token in enumerate(tokens):
+        if token == flag and index + 1 < len(tokens):
+            return tokens[index + 1].strip("'\"")
+    return ""
+
+
 def mutation_cwd(command: str, payload_cwd: str) -> str:
-    """Best-effort Git working directory for a supported mutation command."""
-    git = _git_invocation(command)
+    """Best-effort working directory for a supported mutation command.
+
+    `payload_cwd` is the session's directory, not the command's. A tool that
+    resolves the root from it alone attributes work in a linked worktree to
+    whichever root the session happens to sit in -- which is how a `gt submit`
+    against axon911-frontend came back gated on prepared911's obligations.
+    Directory-bearing forms are read off the command itself.
+    """
+    text = _strip_wrappers(command or "")
+    tokens = text.split()
+
+    # `gt` takes `--cwd`; it is the only way to target a worktree without a
+    # `cd ... &&` prefix, which the compound rule denies for mutations.
+    if tokens[:1] == ["gt"]:
+        explicit = _explicit_directory(tokens, "--cwd")
+        if explicit:
+            return explicit
+        return payload_cwd
+
+    git = _git_invocation(text)
     if not git:
         return payload_cwd
-    tokens = git.split()
-    for index, token in enumerate(tokens):
-        if token == "-C" and index + 1 < len(tokens):
-            return tokens[index + 1]
-    return payload_cwd
+    explicit = _explicit_directory(git.split(), "-C")
+    return explicit or payload_cwd
 
 
 def classify(command: str) -> Dict[str, str]:
