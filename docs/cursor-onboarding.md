@@ -5,12 +5,16 @@ as it exists on `ckark/harness-attest-evals`, which both hosts share.
 
 ## Where the harness lives
 
+This Cursor workspace uses the checkout at:
+
 ```
-/Users/ckark/Documents/CursorWorkspaces/prepared911-harness-attest-evals
+/Users/ckark/Documents/CursorWorkspaces/prepared911-harness
 ```
 
-Branch `ckark/harness-attest-evals`. One Python package, `harness/`, drives both
-hosts. Cursor enters through `.cursor/`; Claude Code enters through the
+That checkout is `main` merged with `ckark/harness-attest-evals`. A sibling
+worktree remains at `prepared911-harness-attest-evals` on the named branch.
+One Python package, `harness/`, drives both hosts. Cursor enters through
+`.cursor/`; Claude Code enters through the
 `a911-harness` plugin. Neither host has logic of its own — a fix in `harness/`
 lands in both.
 

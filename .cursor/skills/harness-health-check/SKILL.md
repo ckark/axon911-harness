@@ -17,21 +17,26 @@ Do not modify files or run mutating commands.
 2. Resolve and read:
    - `prepared911/AGENTS.md`
    - `prepared911/turbo/AGENTS.md`
-   - `prepared911/turbo/apps/docs/AGENTS.md`
-3. Confirm these Prepared911 paths exist:
-   - `.agent/skills/planning-workflow/SKILL.md`
-   - `.agent/skills/react-ui-implementation/SKILL.md`
-   - `turbo/apps/docs/mdx/design`
-   - `turbo/apps/docs/mdx/engineering`
-   - `turbo/apps/docs/generated/component-api-registry.json`
+   - `axon911-frontend/AGENTS.md`
+   - `docs/workspace-rule.md` in the personal harness
+3. Confirm these axon911-frontend (primary) and Prepared911 paths exist:
+   - `axon911-frontend/apps/docs/mdx/design`
+   - `axon911-frontend/apps/docs/mdx/engineering`
+   - `axon911-frontend/apps/docs/generated/component-api-registry.json`
+   - `prepared911/.agent/skills/planning-workflow/SKILL.md`
+   - `prepared911/.agent/skills/react-ui-implementation/SKILL.md`
+   - `prepared911/turbo/apps/docs/mdx/design` (secondary docs benchmark)
 4. Confirm the personal harness contains:
    - `docs/review-contract.md`
    - `docs/routing-matrix.md`
    - `docs/plan-contract.md`
    - `docs/implementation-contract.md`
+   - `docs/workspace-rule.md`
+   - `docs/cursor-onboarding.md`
    - `docs/axon911-agents.md` (deferred; not a live workspace root)
    - `.cursor/skills/adversarial-review/SKILL.md`
    - `.cursor/skills/plan-check/SKILL.md`
+   - `.cursor/skills/implementation-check/SKILL.md`
    - All files linked from the adversarial-review skill under `references/`
    - `.cursor/skills/adversarial-review/references/evidence-capture.md`
    - Seeded maintenance cases under
@@ -62,19 +67,23 @@ Do not modify files or run mutating commands.
    `docs/implementation-contract.md`.
 4g. Confirm runtime verification assets:
    - `docs/runtime-contract.md` (cooperative assurance, not tamper-proof)
-   - `.cursor/hooks.json`
+   - `.cursor/hooks.json` (7 events bound to `.cursor/hooks/runtime_gate.py`)
    - `.cursor/hooks/runtime_gate.py`
-   - `.cursor/hooks/scope_probe.py`
+   - `harness/cli.py`
+   - `harness/scope_probe.py`
    - `.cursor/skills/implementation-check/SKILL.md`
    - `.cursor/agents/implementation-verifier.md`
    - `automations/pr-verification/config.json` with `status: dormant`
-   - `.gitignore` ignores `.cursor/runtime/`
-4h. If `.cursor/runtime/scope-probe.json` exists, verify it with
-    `python3 .cursor/hooks/scope_probe.py verify-report` and report the
+   - `.gitignore` ignores `.harness/runtime/`
+4h. If `.harness/runtime/scope-probe.json` exists, verify it with
+    `python3 harness/scope_probe.py verify-report` and report the
     measured `enforcement_scope`. Missing sibling-root fires are a documented
     limitation, not a pass.
 4i. Confirm Cursor exposes `implementation-check` and
     `implementation-verifier` in addition to the review panel.
+4j. Confirm Cursor wiring from `docs/cursor-onboarding.md`:
+    `python3 .cursor/hooks/runtime_gate.py benchmark --json` reports
+    `history_independent: true`. Do not use `--help` as a probe.
 5. Report whether Cursor exposes:
    - `adversarial-review`
    - `plan-check`

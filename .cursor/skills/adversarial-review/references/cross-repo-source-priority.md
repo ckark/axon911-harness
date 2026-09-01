@@ -21,11 +21,14 @@ Compare:
 - At least one producer and representative consumers
 - Migration order, compatibility window, and rollback
 
-Prepared911 is authoritative for current Prepared911 behavior. Axon is
-authoritative for its shell, remotes, federation contracts, and vendored
-package behavior. Vault is authoritative for its own recorded decisions and
-knowledge-management format, but a note is not proof that code implements the
-decision.
+Prepared911 is authoritative for current Prepared911 application behavior
+(dispatch, beacon, and the Ruby and Go services). Axon is authoritative for
+its shells, remotes, federation contracts, and the `@prepared/ui-*` suite it
+has owned since CORE-754 (`AGENTS.md:121`, `docs/VENDORING.md`) — prepared911's
+`turbo/packages/ui-*` is a deprecating mirror, not a second source of truth,
+even for behavior currently observable there. Vault is authoritative for its
+own recorded decisions and knowledge-management format, but a note is not
+proof that code implements the decision.
 
 When sources conflict, cite both, explain the scope of each, and report drift
 instead of silently choosing the preferred design.

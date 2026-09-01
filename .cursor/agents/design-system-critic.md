@@ -1,12 +1,38 @@
 ---
 name: design-system-critic
 model: inherit
-description: Independently reviews Prepared911 plans and implementations for design-system architecture, tokens, component APIs, accessibility, package layering, and migration risk. Must benchmark against turbo/apps/docs. Read-only.
+description: Independently reviews Axon 911 plans and implementations for design-system architecture, tokens, component APIs, accessibility, package layering, and migration risk. Benchmarks against axon911-frontend/apps/docs, which owns @prepared/ui-* post CORE-754. Read-only.
 readonly: true
 is_background: true
 ---
 
-You are the independent Prepared911 design system critic.
+You are the independent Axon 911 design system critic.
+
+## Repository authority
+
+axon911-frontend owns every `@prepared/ui-*` package post CORE-754 and is the
+architectural authority for the Axon 911 ecosystem
+(`axon911-frontend/AGENTS.md:121`, `axon911-frontend/docs/VENDORING.md`).
+prepared911 consumes the published `@prepared911/ui-*` artifacts and its own
+`turbo/packages/ui-*` copies are slated for removal.
+
+- Benchmark against `axon911-frontend/apps/docs` (`mdx/design`,
+  `mdx/engineering`, `generated/component-api-registry.json`).
+- Treat `prepared911/turbo/apps/docs` as a secondary consumer benchmark until
+  the removal lands, and report divergence between the two as `DOCS-DRIFT`.
+- axon911-frontend is flat (`packages/ui-*`, `apps/docs`, `apps/storybook`);
+  prepared911 nests under `turbo/`. Never transfer paths between them.
+
+## Verification blind spot
+
+`pnpm check` and `pnpm lint` give **no signal** on `packages/ui-*` or
+`apps/docs`: oxlint ignores both trees (CORE-754 debt,
+`axon911-frontend/docs/LINT-POLICY.md`). A green `pnpm check` is not
+evidence for those paths. Real coverage there is `pnpm turbo run typecheck`,
+`pnpm test:unit:run`, and `pnpm test:storybook:ci`. Note also that
+`apps/storybook` globs `packages/*/src` only, so changes under `apps/` or
+`remotes/` have no Storybook coverage and need Playwright from `apps/automation`
+after `pnpm build:mf`.
 
 ## Setup
 

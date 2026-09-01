@@ -20,7 +20,9 @@ merge into Eve.
 
 Each repository's own instructions and behavior take precedence for work in
 that repository. An implementation task must identify its target root or roots
-before editing.
+before editing. For anything `@prepared/ui-*`, design-token, or
+shared-frontend-architecture shaped, axon911-frontend is authoritative; see
+`docs/workspace-rule.md` and `docs/cursor-onboarding.md`.
 
 ## Open
 
@@ -70,8 +72,14 @@ Cursor Agent normally.
   - `T2` — full panel for public contracts, auth/PII, realtime, or cross-root
 - Ordinary changes still need a fresh-context pass at their tier. Authoring-
   context self-review is not enough.
+- Use `/implementation-check` to attest repository-owned commands and issue
+  review receipts before an Agent-shell commit or push.
 - Use `/harness-health-check` after setup changes or a Cursor update, not before
   every task.
+- Cursor wiring, CLI commands, and gate surprises are in
+  `docs/cursor-onboarding.md`. Confirm the shim with
+  `python3 .cursor/hooks/runtime_gate.py benchmark --json` (do not use
+  `--help`).
 
 ## Runtime verification
 
@@ -90,7 +98,8 @@ tamper-proof, not atomic Git enforcement, and not a security boundary.
 - Dormant Automation templates live under `automations/pr-verification/`. Do
   not create live Automations from them until the activation checklist is
   complete.
-- Runtime state is gitignored under `.cursor/runtime/`.
+- Runtime state is gitignored under `.harness/runtime/`. Legacy
+  `.cursor/runtime/` stays ignored so older checkouts stay clean.
 
 Examples:
 
@@ -159,3 +168,5 @@ must satisfy `docs/implementation-contract.md`.
 - Use the seeded cases under `.cursor/skills/adversarial-review/evals/` when
   changing review behavior.
 - Run `/harness-health-check` after Cursor upgrades or agent-schema changes.
+- Keep `docs/cursor-onboarding.md` current when Cursor wiring, hook paths, or
+  CLI commands change.

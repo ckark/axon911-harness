@@ -214,7 +214,8 @@ with root, obligation IDs, and an exact recovery command.
 
 ## Persistence
 
-Gitignored `.cursor/runtime/`:
+Gitignored `.harness/runtime/` (legacy `.cursor/runtime/` remains ignored so
+older checkouts stay clean):
 
 - owner-only `0700` directories and `0600` files
 - no-follow opens where supported

@@ -78,6 +78,10 @@ lines this change touched:
 python3 "${CLAUDE_PLUGIN_ROOT}"/harness/cli.py ui-principles --root axon911-frontend
 ```
 
+Under Cursor the harness is a workspace root rather than a plugin, so the same
+command is `python3 harness/cli.py ui-principles --root axon911-frontend` from
+the harness root.
+
 ### vault-core-ux
 
 - Required frontmatter present and valid
@@ -90,9 +94,14 @@ python3 "${CLAUDE_PLUGIN_ROOT}"/harness/cli.py ui-principles --root axon911-fron
 From the harness root (or the isolated implementation worktree):
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .cursor/hooks/tests -p 'test_*.py'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s harness/tests -p 'test_*.py'
 python3 -m json.tool .cursor/hooks.json >/dev/null
+python3 .cursor/hooks/runtime_gate.py benchmark --json
 ```
+
+The tests live in `harness/`, the package both hosts share, not under
+`.cursor/`. `--help` is not a valid shim probe: it prints `unknown command` and
+still exits 0. See `docs/cursor-onboarding.md`.
 
 Follow `docs/runtime-contract.md` for obligation IDs, receipts, and Agent-shell
 preflight. Dispatch a fresh-context review at the required tier; T2 harness

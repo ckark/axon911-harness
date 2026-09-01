@@ -11,6 +11,11 @@ Tier is **computed, not asserted**:
 python3 "${CLAUDE_PLUGIN_ROOT}"/harness/cli.py tier --root <root> --stated <tier> --json
 ```
 
+Under Cursor, run it from the harness root as
+`python3 harness/cli.py tier --root <root> --stated <tier> --json`. Add
+`--against <ref>` to score a full branch before a PR; live gating never passes
+it, because a hook must score the current edit.
+
 ### Why this replaced a prose table
 
 The previous criteria listed "public `ui-*` export" as a `T2` trigger. All 14

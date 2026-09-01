@@ -2,21 +2,28 @@
 
 Required for design-system and frontend-architecture critics.
 
+The primary benchmark is axon911-frontend's docs app, which documents the
+packages axon911-frontend owns post CORE-754. prepared911's `turbo/apps/docs`
+is secondary until its removal lands. Where the two disagree about
+`@prepared/ui-*`, axon911-frontend is correct and the divergence is a
+`DOCS-DRIFT-###` finding, not a judgment call.
+
 ## Route to the smallest relevant docs slice
 
-- Design foundations: `turbo/apps/docs/mdx/design/foundations`
-- Primitives: `turbo/apps/docs/mdx/design/primitives`
-- Components: `turbo/apps/docs/mdx/design/components`
-- Blocks: `turbo/apps/docs/mdx/design/blocks`
+- Design foundations: `axon911-frontend/apps/docs/mdx/design/foundations`
+- Primitives: `axon911-frontend/apps/docs/mdx/design/primitives`
+- Components: `axon911-frontend/apps/docs/mdx/design/components`
+- Blocks: `axon911-frontend/apps/docs/mdx/design/blocks`
 - Calendar and other domain catalogs: matching `mdx/design/*`
-- Architecture and data: `turbo/apps/docs/mdx/engineering/architecture` and
+- Architecture and data: `axon911-frontend/apps/docs/mdx/engineering/architecture` and
   `working-with-data`
-- Performance: `turbo/apps/docs/mdx/engineering/performance`
-- Testing: `turbo/apps/docs/mdx/engineering/testing-strategy`
-- Feature workflow: `turbo/apps/docs/mdx/engineering/working-on-features`
+- Performance: `axon911-frontend/apps/docs/mdx/engineering/performance`
+- Testing: `axon911-frontend/apps/docs/mdx/engineering/testing-strategy`
+- Feature workflow: `axon911-frontend/apps/docs/mdx/engineering/working-on-features`
 - Generated public surface:
-  `turbo/apps/docs/generated/component-api-registry.json`
+  `axon911-frontend/apps/docs/generated/component-api-registry.json`
 - Concrete docs consumer: relevant files under `app`, `features`, and `common`
+- Secondary prepared911 slice (only when relevant): `turbo/apps/docs/...`
 
 For a documented component, inspect `usage.mdx`, `api-dev.mdx`, and
 `accessibility.mdx` when present. Then compare those claims with package
