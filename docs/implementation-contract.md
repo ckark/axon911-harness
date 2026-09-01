@@ -1,4 +1,4 @@
-# Prepared911 Implementation Contract
+# Axon 911 Implementation Contract
 
 Personal definition of done for work across the multi-root workspace. This
 contract does not redefine repository coding standards. Resolve the target root
@@ -6,9 +6,14 @@ first, then use that root's own instructions and verification commands.
 
 ## Resolve the root first
 
-Identify which of `prepared911`, `axon911-frontend`, or `vault-core-ux` owns
-the change. Read that root's `AGENTS.md` (or vault `.cursorrules`) before
-editing. Do not transfer Prepared911 commands or conventions to another root.
+Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, or
+`personal-harness` owns the change. axon911-frontend owns every
+`@prepared/ui-*` package post CORE-754 (`AGENTS.md:121`, `docs/VENDORING.md`) and
+is the architectural authority for the Axon 911 ecosystem; a ui-* bug fix belongs
+there, not in prepared911's `turbo/packages/ui-*` mirror. axon911-frontend is
+flat; prepared911 nests under `turbo/`. Read that root's `AGENTS.md` (vault
+`.cursorrules`, or harness contracts) before editing. Do not transfer
+Prepared911 commands or conventions to another root.
 
 ## Per-root verification
 
@@ -36,13 +41,42 @@ Follow the repository's pre-commit and branch policy in `AGENTS.md`.
 
 ### axon911-frontend
 
+**`pnpm check` reports nothing on `packages/ui-*` or `apps/docs`.** oxlint
+ignores both trees (`packages/tooling-config/src/oxlint/config.ts:37-58`,
+CORE-754 debt, `docs/LINT-POLICY.md:53-55`). A green `pnpm check` is not evidence
+for those paths, and neither is a green CI `lint` job.
+
 ```bash
-pnpm check
-pnpm turbo run typecheck
+pnpm check                 # ultracite check + feature-flags:check + intent:check (root-level)
+pnpm turbo run typecheck   # also runs generate-ui-components.mjs --check
+pnpm test:unit:run
+pnpm test:storybook:ci     # Vitest browser mode: a11y + interaction
 ```
 
-Run package-scoped tests when the change has dedicated coverage. Prefer
-`pnpm fix` before claiming lint/format done.
+`pnpm check` is **not** the same gate as `pnpm lint` / `pnpm format`, which fan
+out per package through turbo.
+
+| Path | What actually covers it |
+|---|---|
+| `packages/ui-*` | typecheck, unit tests, Storybook build and test, the `apps/auth` webpack build (ui-core only) |
+| `apps/**`, `remotes/**` | Playwright from `apps/automation` after `pnpm build:mf`; `apps/storybook` globs `packages/*/src` only, so these have no Storybook coverage |
+| `remotes/**`, `mfe-core` | `pnpm mf:types:check` |
+| `packages/feature-flags` | `pnpm feature-flags:check` |
+
+Formatter is Ultracite 7 over oxlint and oxfmt. There is no Biome — that applies
+only to prepared911. Prefer `pnpm fix` before claiming lint/format done.
+
+`pnpm check` also runs `intent:check`, which is
+`intent install && oxfmt AGENTS.md && git diff --exit-code -- AGENTS.md`. Never
+hand-edit the `<!-- intent-skills:start/end -->` block in `AGENTS.md`; run
+`pnpm intent:sync` after any `AGENTS.md` change.
+
+The harness additionally runs the rules the repo switched off, scoped to the
+lines this change touched:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}"/harness/cli.py ui-principles --root axon911-frontend
+```
 
 ### vault-core-ux
 
@@ -50,6 +84,19 @@ Run package-scoped tests when the change has dedicated coverage. Prefer
 - Outgoing `[[wikilinks]]` resolve
 - Note lives under the correct top-level folder
 - No proprietary HTML or generated cache files
+
+### personal-harness
+
+From the harness root (or the isolated implementation worktree):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .cursor/hooks/tests -p 'test_*.py'
+python3 -m json.tool .cursor/hooks.json >/dev/null
+```
+
+Follow `docs/runtime-contract.md` for obligation IDs, receipts, and Agent-shell
+preflight. Dispatch a fresh-context review at the required tier; T2 harness
+runtime changes still use `/adversarial-review`.
 
 ## Affected, not everything
 
@@ -92,12 +139,22 @@ workspace. Subagents and reviews may treat violations as contract defects.
 - Keep `ui-components.generated.ts` (or the target root's equivalent
   generated registry) current when component APIs change.
 - Update the corresponding docs-site page for any `ui-*` package change.
-- Never use the `style` attribute on `Box` or `FlexBox`; use `className` with
-  `bem` and `prefixClass`, and update or create the related SCSS file.
-- Never use basic HTML elements (`button`, `div`, `span`, and peers) when a
-  `@prepared/ui-core` primitive exists. Ask before using raw `div` or `span`.
-- Do not add comments unless asked; always add tsdocs to new props, hooks,
-  utils, and helper files.
+- Style with `prefixClass` for the block and `bem` for elements and modifiers
+  (`packages/ui-core/src/utils/{prefix-class,bem}.ts`, exported from `index.ts`),
+  and update or create the related SCSS file.
+- Prefer semantic tokens over raw values. Tokens are CSS custom properties
+  (`var(--token)`), not SCSS variables. `apps/docs/mdx/design/foundations/`
+  states the specific rules; `packages/ui-core/scripts/audit-component-scss-paint.mjs`
+  mechanically enforces the paint subset.
+- New visible-text props on owned components must be typed `LocalizedMessage`
+  (`packages/mfe-core/src/contract/domains/localization/interface.ts:9`), which
+  `pnpm typecheck` then enforces. Existing ui-core props are still plain
+  `string` for historical reasons, so this binds new props only.
+- Declare Module Federation shared dependencies in both the remote and
+  `apps/responder/vite.config.mjs`.
+- Feature flags require `TeamID`, `outagePolicy`, and `updatePolicy`.
+- Generated files are checked in and CI rejects drift.
+- Do not add comments unless asked.
 - Check for linter and TypeScript errors before completing the answer.
 - Prefer Graphite/Cursor Review for branch and PR management when available.
 - If a Figma link is supplied, check that the Figma MCP is active; if not,
@@ -113,8 +170,11 @@ A task is done only when all of the following are true:
 3. Every instance of the changed pattern is fixed at the shared layer, or
    explicitly deferred with a reason.
 4. Generated artifacts named by the plan or standing obligations are current.
-5. A fresh-context review has been dispatched at the blast-radius tier the
-   change requires (`T0`, `T1`, or `T2` per `docs/routing-matrix.md`).
+5. A fresh-context review has been dispatched at the **computed** blast-radius
+   tier (`docs/routing-matrix.md`), not an asserted one, and the critic returns
+   are identity-bound where the host supplies identity.
+6. Changed paths conform to the plan's declared scope: nothing `undeclared` and
+   nothing `unimplemented`, or each exception stated with a reason.
 
 Authoring-context self-review and a green CI run alone do not satisfy item 5.
 
@@ -123,5 +183,6 @@ Authoring-context self-review and a green CI run alone do not satisfy item 5.
 - Do not skip repository hooks with `--no-verify` unless explicitly instructed.
 - Do not amend commits or force-push to trunk.
 - Do not modify `personal-harness` during an ordinary product implementation
-  task unless the user asks to update the harness.
+  task unless the user asks to update the harness. Explicit harness
+  implementation is a first-class target when the user names it.
 - Preserve pre-existing dirty working trees in every root.

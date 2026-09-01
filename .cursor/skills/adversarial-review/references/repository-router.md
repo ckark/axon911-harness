@@ -7,7 +7,7 @@ Resolve the target root before loading domain context.
 | `prepared911` | `AGENTS.md`, `turbo/AGENTS.md`, `turbo/packages/ui-core/package.json` | Layered `AGENTS.md`, referenced `.agent/skills`, source and tests | Production monorepo and authoritative current behavior |
 | `axon911-frontend` | Root `AGENTS.md`, `apps/responder`, `remotes`, `packages/tooling-config` | Root `AGENTS.md`, `.agents/skills/README.md`, triggered `.agents/skills/*/SKILL.md` | Vite 8, Module Federation, TanStack Router prototype and vendored UI consumers |
 | `vault-core-ux` | Root `README.md`, `20-architecture`, `30-standards` | `README.md`, `.cursorrules`, note frontmatter and linked architecture index | Knowledge vault: decisions, proposals, standards, and historical context |
-| `personal-harness` | `docs/review-contract.md`, `.cursor/skills/adversarial-review/SKILL.md` | Workspace rule, contract, routing matrix, critic prompts | Review orchestration only |
+| `personal-harness` | `docs/review-contract.md`, `.cursor/skills/adversarial-review/SKILL.md` | Workspace rule, plan/implementation/runtime contracts, routing matrix, critic prompts | Review orchestration and explicit harness implementation, including runtime verification |
 
 ## Route by target
 

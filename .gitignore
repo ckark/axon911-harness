@@ -1,4 +1,13 @@
 .DS_Store
 **/.DS_Store
 .cursor/plans/
+.claude/plans/
+# Ledger, receipts, and captured evidence. Session-local and worktree-bound:
+# fingerprints do not transfer between checkouts, so this must never be shared.
+.harness/runtime/
+# Pre-relocation location, kept so older checkouts stay clean.
+.cursor/runtime/
+evals/results/
 *.log
+*.pyc
+**/__pycache__/
