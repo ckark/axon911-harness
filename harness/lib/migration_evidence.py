@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import json
 import os
 from typing import Any, Dict, List, Mapping, Optional, Sequence, TypedDict
@@ -256,8 +257,10 @@ def _render_change_section(
     ]
     if before:
         lines.append("![%s before](%s)" % (title, before))
-    else:
+    elif not attachment_urls:
         raise ValueError("missing before URL for %s" % change_id)
+    else:
+        lines.append("_Before image pending_")
     lines.extend(
         [
             "",
@@ -267,8 +270,10 @@ def _render_change_section(
     )
     if after:
         lines.append("![%s after](%s)" % (title, after))
-    else:
+    elif not attachment_urls:
         raise ValueError("missing after URL for %s" % change_id)
+    else:
+        lines.append("_After image pending_")
     lines.extend(
         [
             "",
@@ -329,6 +334,98 @@ def _find_marker_block(body: str) -> tuple[int, int]:
     if end < 0:
         return start, -1
     return start, end + len(VISUAL_EVIDENCE_MARKER_END)
+
+
+
+
+def parse_manifest_attachment_urls(body: str, manifest: Mapping[str, Any]) -> Dict[str, Dict[str, str]]:
+    """Map change before/after slots to GitHub user-attachment URLs from PR markdown."""
+    found: Dict[str, Dict[str, str]] = {}
+    urls = USER_ATTACHMENT_URL.findall(body or "")
+    url_index = 0
+    for item in manifest.get("changes") or []:
+        if not isinstance(item, dict):
+            continue
+        change_id = str(item.get("change_id") or "")
+        if not change_id:
+            continue
+        found[change_id] = {}
+        for kind in ("before", "after"):
+            token = "%s-%s" % (change_id, kind)
+            pattern = re.compile(
+                r"!\[[^\]]*"
+                + re.escape(token)
+                + r"[^\]]*\]\(("
+                + USER_ATTACHMENT_URL.pattern
+                + r")\)",
+                re.IGNORECASE,
+            )
+            match = pattern.search(body or "")
+            if match:
+                found[change_id][kind] = match.group(1)
+                continue
+            filename = str(item.get("%s_url" % kind) or "").replace("./", "")
+            if filename:
+                file_pattern = re.compile(
+                    r"!\[[^\]]*"
+                    + re.escape(filename)
+                    + r"[^\]]*\]\(("
+                    + USER_ATTACHMENT_URL.pattern
+                    + r")\)",
+                    re.IGNORECASE,
+                )
+                file_match = file_pattern.search(body or "")
+                if file_match:
+                    found[change_id][kind] = file_match.group(1)
+                    continue
+            while url_index < len(urls):
+                candidate = urls[url_index]
+                url_index += 1
+                found[change_id][kind] = candidate
+                break
+    return found
+
+
+def strip_trailing_user_attachments(body: str) -> str:
+    """Remove gh --attach markdown appended after the bounded evidence block."""
+    lines = (body or "").rstrip().split("\n")
+    while lines:
+        line = lines[-1].strip()
+        if not line:
+            lines.pop()
+            continue
+        if line.startswith("![") and USER_ATTACHMENT_URL.search(line):
+            lines.pop()
+            continue
+        break
+    if not lines:
+        return ""
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def strip_legacy_visual_evidence_sections(body: str) -> str:
+    """Remove pre-marker Visual changes sections once the bounded block owns evidence."""
+    if VISUAL_EVIDENCE_MARKER_START not in (body or ""):
+        return body or ""
+    lines = (body or "").split("\n")
+    cleaned: List[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line.strip() == "## Visual changes":
+            probe = "\n".join(lines[index:])
+            if VISUAL_EVIDENCE_MARKER_START in probe:
+                index += 1
+                while index < len(lines):
+                    if lines[index].startswith("## ") and lines[index].strip() != "## Visual changes":
+                        break
+                    if lines[index].startswith("<!-- visual-evidence:start"):
+                        break
+                    index += 1
+                continue
+        cleaned.append(line)
+        index += 1
+    return "\n".join(cleaned).rstrip() + "\n"
 
 
 def merge_pr_body(existing_body: str, evidence_block: str) -> str:

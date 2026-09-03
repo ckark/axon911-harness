@@ -69,6 +69,16 @@ function parseViewport(raw) {
   };
 }
 
+async function cssTokensReady(page) {
+  return page.evaluate(() => {
+    const style = getComputedStyle(document.documentElement);
+    return Boolean(
+      style.getPropertyValue("--color-background-base").trim() ||
+        style.getPropertyValue("--color-background").trim(),
+    );
+  });
+}
+
 async function captureOne(page, capture, baseUrl, entries) {
   const viewport = parseViewport(capture.viewport);
   await page.setViewportSize(viewport);
@@ -85,12 +95,28 @@ async function captureOne(page, capture, baseUrl, entries) {
   });
   page.on("requestfailed", (req) => failedRequests.push(req.url()));
 
-  await page.goto(url, { waitUntil: "networkidle", timeout: 120000 });
-  await page.waitForFunction(
-    () => document.body.classList.contains("sb-show-main"),
-    undefined,
-    { timeout: 120000 },
-  );
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    consoleErrors.length = 0;
+    failedRequests.length = 0;
+    await page.goto(url, { waitUntil: "networkidle", timeout: 120000 });
+    await page.waitForFunction(
+      () => document.body.classList.contains("sb-show-main"),
+      undefined,
+      { timeout: 120000 },
+    );
+    if (await cssTokensReady(page)) {
+      break;
+    }
+    const staleDeps = failedRequests.some((entry) => entry.includes("Outdated Optimize Dep"));
+    if (staleDeps && attempt < 2) {
+      await page.reload({ waitUntil: "networkidle", timeout: 120000 });
+      continue;
+    }
+    if (attempt < 2) {
+      await page.waitForTimeout(1000);
+      continue;
+    }
+  }
   await page.waitForTimeout(500);
 
   for (const action of capture.actions || []) {
@@ -105,10 +131,7 @@ async function captureOne(page, capture, baseUrl, entries) {
   await target.waitFor({ state: "visible", timeout: 30000 });
   const box = await target.boundingBox();
   const stylesheetsPresent = await page.evaluate(() => document.styleSheets.length > 0);
-  const cssTokensReady = await page.evaluate(() => {
-    const style = getComputedStyle(document.documentElement);
-    return Boolean(style.getPropertyValue("--color-background-primary").trim());
-  });
+  const cssTokensReadyValue = await cssTokensReady(page);
   const fontsReady = await page.evaluate(async () => {
     if (!document.fonts) return true;
     try {
@@ -137,7 +160,7 @@ async function captureOne(page, capture, baseUrl, entries) {
     health: {
       storybook_ready: true,
       fonts_ready: fontsReady,
-      css_tokens_ready: cssTokensReady,
+      css_tokens_ready: cssTokensReadyValue,
       target_visible: (box?.width || 0) > 0 && (box?.height || 0) > 0,
       target_bounds_nonzero: (box?.width || 0) > 0 && (box?.height || 0) > 0,
       stylesheets_present: stylesheetsPresent,

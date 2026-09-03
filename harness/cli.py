@@ -655,9 +655,12 @@ def cmd_migration_evidence(argv: Sequence[str]) -> int:
         load_manifest,
         manifest_sha256,
         merge_pr_body,
+        parse_manifest_attachment_urls,
         register_migration_manifest,
         render_pr_body,
         revalidate_migration_manifest,
+        strip_legacy_visual_evidence_sections,
+        strip_trailing_user_attachments,
         verify_pr_body_block,
     )
     from lib.github_attach import GitHubAttachError, attach_pr_files, extract_attachment_urls, require_gh_attach
@@ -749,18 +752,66 @@ def cmd_migration_evidence(argv: Sequence[str]) -> int:
         body_path = args.body_file or os.path.join(runtime_dir(), "pr-body-%s.md" % args.pr)
         with open(body_path, "w", encoding="utf-8") as handle:
             handle.write(merged)
+        manifest_dir = os.path.dirname(os.path.abspath(args.manifest))
         files = []
         for item in manifest.get("changes") or []:
             if not isinstance(item, dict):
                 continue
             for kind in ("before", "after"):
-                pointer = str(item.get("%s_artifact" % kind) or item.get("%s_path" % kind) or "")
-                if pointer and os.path.isfile(pointer):
+                pointer = str(
+                    item.get("%s_artifact" % kind)
+                    or item.get("%s_path" % kind)
+                    or item.get("%s_url" % kind)
+                    or ""
+                )
+                if not pointer or pointer.startswith("http"):
+                    continue
+                if pointer.startswith("./"):
+                    pointer = os.path.join(manifest_dir, pointer[2:])
+                elif not os.path.isabs(pointer):
+                    pointer = os.path.join(manifest_dir, pointer)
+                if os.path.isfile(pointer):
                     files.append(pointer)
         try:
             attach_pr_files(args.repo, args.pr, files, body_file=body_path)
         except GitHubAttachError as exc:
             sys.stderr.write("migration-evidence attach-pr: %s\n" % exc)
+            return 2
+        refreshed = subprocess.run(
+            ["gh", "pr", "view", str(args.pr), "--repo", args.repo, "--json", "body,baseRefOid,headRefOid", "-q", "."],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if refreshed.returncode != 0:
+            sys.stderr.write(refreshed.stderr or "failed to refetch PR body\n")
+            return 2
+        payload = json.loads(refreshed.stdout or "{}")
+        base_sha = str(payload.get("baseRefOid") or args.base_sha)
+        head_sha = str(payload.get("headRefOid") or args.head_sha)
+        attachment_urls = parse_manifest_attachment_urls(str(payload.get("body") or ""), manifest)
+        evidence = render_pr_body(
+            manifest,
+            attachment_urls,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            manifest_hash=manifest_hash,
+        )
+        stripped = strip_trailing_user_attachments(str(payload.get("body") or ""))
+        stripped = strip_legacy_visual_evidence_sections(stripped)
+        final_body = merge_pr_body(stripped, evidence)
+        with open(body_path, "w", encoding="utf-8") as handle:
+            handle.write(final_body)
+        rewrite = subprocess.run(
+            ["gh", "pr", "edit", str(args.pr), "--repo", args.repo, "--body-file", body_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if rewrite.returncode != 0:
+            sys.stderr.write(rewrite.stderr or rewrite.stdout or "failed to rewrite PR body\n")
             return 2
         refreshed = subprocess.run(
             ["gh", "pr", "view", str(args.pr), "--repo", args.repo, "--json", "body,baseRefOid,headRefOid", "-q", "."],
