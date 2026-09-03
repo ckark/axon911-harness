@@ -429,7 +429,9 @@ def cmd_verify(argv: Sequence[str]) -> int:
         "plan_hash": plan_hash,
         "tier": tier,
         "changed_paths": changed,
-        "triggered_obligations": list(triggered_obligations(args.root, changed).keys()),
+        "triggered_obligations": [
+            obligation["id"] for obligation in triggered_obligations(args.root, changed)
+        ],
         "required_obligation_ids": required,
         "gate": gate,
     }
