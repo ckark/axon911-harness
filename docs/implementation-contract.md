@@ -137,6 +137,11 @@ flows, Storybook variants — ships with rendered evidence of the after state
 - Docs page
 - Playwright screenshot or trace
 
+**Migration PRs** require a labeled before/after pair for every changed consumer
+or visually distinct state. Use `python3 harness/cli.py migration-evidence verify`
+against a manifest under `.harness/runtime/evidence/`; embed hosted URLs in the PR
+body; never commit evidence binaries to the product branch.
+
 If the surface cannot be reached live, render against realistic data and say
 so. A green typecheck alone is not rendered evidence.
 

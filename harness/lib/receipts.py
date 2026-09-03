@@ -403,43 +403,38 @@ def evaluate_gate(
     for obligation_id in required_obligation_ids:
         if obligation_id.startswith("review."):
             continue
+        if root_path and (
+            obligation_id.endswith(".rendered-evidence")
+            or obligation_id.endswith(".rendered-evidence.before-after")
+        ):
+            from .evidence import revalidate_evidence
+
+            base_oid = ""
+            require_before = False
+            if obligation_id.endswith(".rendered-evidence.before-after"):
+                profile = active_profile(state, root, worktree_id)
+                base_oid = str(profile.get("base_oid") or "")
+                require_before = True
+            errors = revalidate_evidence(
+                root_path,
+                state,
+                root,
+                worktree_id,
+                obligation_id.replace(".before-after", ""),
+                expected_context,
+                require_before=require_before,
+                require_after=True,
+                base_oid=base_oid,
+                fingerprint=fingerprint,
+            )
+            categories["evidence"].extend(errors)
+            if errors:
+                categories["missing"].append(obligation_id)
+            continue
         bucket = _receipt_categories(receipts, obligation_id, expected_plan, expected_context)
         if bucket == "ok":
             continue
         categories[bucket].append(obligation_id)
-
-        if root_path and obligation_id.endswith(".rendered-evidence"):
-            from .evidence import revalidate_evidence
-
-            errors = revalidate_evidence(
-                root_path,
-                state,
-                root,
-                worktree_id,
-                obligation_id.replace(".before-after", ""),
-                expected_context,
-                require_before=False,
-                require_after=True,
-                fingerprint=fingerprint,
-            )
-            categories["evidence"].extend(errors)
-        if root_path and obligation_id.endswith(".rendered-evidence.before-after"):
-            from .evidence import revalidate_evidence
-
-            profile = active_profile(state, root, worktree_id)
-            errors = revalidate_evidence(
-                root_path,
-                state,
-                root,
-                worktree_id,
-                obligation_id.replace(".before-after", ""),
-                expected_context,
-                require_before=True,
-                require_after=True,
-                base_oid=str(profile.get("base_oid") or ""),
-                fingerprint=fingerprint,
-            )
-            categories["evidence"].extend(errors)
 
     review_needed = any(item.startswith("review.") for item in required_obligation_ids)
     if review_needed:

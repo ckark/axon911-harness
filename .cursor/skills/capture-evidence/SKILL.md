@@ -12,17 +12,43 @@ it cannot silently go stale.
 
 ## Pick the route by what changed
 
-`apps/storybook` is the only Storybook in axon911-frontend, and its stories glob
-is `../../../packages/*/src/**/*.stories.@(ts|tsx)`. Stories under `apps/` or
-`remotes/` are **never discovered**, so those changes cannot use it.
-
 | Changed | Route |
 |---|---|
-| `packages/ui-*` | Storybook — `pnpm storybook` (port 5203) |
-| `apps/**`, `remotes/**` | Playwright — `pnpm build:mf` then `apps/automation` |
+| `packages/ui-*` in axon911-frontend | Storybook — `pnpm storybook` (port 5203) |
+| `packages/ui-*` or Dispatch modules in prepared911 | Storybook — `just storybook run` (port 3005) |
+| `apps/**`, `remotes/**` in axon911-frontend | Playwright — `pnpm build:mf` then `apps/automation` |
 
-There is no Chromatic in this repo. Visual coverage is Storybook plus Vitest
-browser-mode a11y and interaction tests.
+For **migration PRs**, use a per-change manifest and the migration evidence commands below. Do not add capture scripts or PNGs to the product branch.
+
+## Migration PR procedure
+
+1. Author a manifest under `.harness/runtime/evidence/<plan-hash>/manifest.json` with one entry per visually changed consumer or state. Each entry needs `change_id`, `title`, `source_paths`, and `capture` metadata (`story_id`, `theme`, `brand`, `viewport`, `state`).
+2. Capture **Before** on the baseline branch and **After** on the migration branch using the same capture metadata.
+3. Register artifacts:
+
+   ```bash
+   python3 harness/cli.py record-evidence --root prepared911 \
+     --change-id <change-id> --kind before|after \
+     --story-id "<story>" --theme dark --brand prepared \
+     --viewport 1280x720 --state <state> \
+     --artifact .harness/runtime/evidence/<plan>/<file>.png
+   ```
+
+4. Verify completeness:
+
+   ```bash
+   python3 harness/cli.py migration-evidence verify \
+     --root prepared911 --manifest .harness/runtime/evidence/<plan>/manifest.json
+   ```
+
+5. Render PR markdown:
+
+   ```bash
+   python3 harness/cli.py migration-evidence pr-body \
+     --manifest .harness/runtime/evidence/<plan>/manifest.json
+   ```
+
+Embed hosted image URLs in the manifest (`before_url` / `after_url`) when Chromatic or GitHub user attachments are available. Never commit PNG binaries to the product branch.
 
 ## Procedure
 

@@ -583,17 +583,43 @@ def cmd_preview_obligations(argv: Sequence[str]) -> int:
 def cmd_record_evidence(argv: Sequence[str]) -> int:
     import argparse
 
+    from dispatch.common import snap
     from lib.evidence import record_evidence
     from lib.plan_profile import profile_from_state
 
     parser = argparse.ArgumentParser(prog="record-evidence")
     parser.add_argument("--root", required=True)
-    parser.add_argument("--obligation-id", required=True)
+    parser.add_argument("--obligation-id", default="")
+    parser.add_argument("--change-id", default="")
     parser.add_argument("--kind", required=True, choices=("before", "after"))
     parser.add_argument("--artifact", required=True)
+    parser.add_argument("--story-id", default="")
+    parser.add_argument("--theme", default="")
+    parser.add_argument("--brand", default="")
+    parser.add_argument("--viewport", default="")
+    parser.add_argument("--state", default="")
     args = parser.parse_args(argv)
+    obligation_id = args.obligation_id
+    if not obligation_id:
+        if not args.change_id:
+            sys.stderr.write("record-evidence: require --obligation-id or --change-id\n")
+            return 2
+        from lib.migration_evidence import obligation_id_for_change
+
+        obligation_id = obligation_id_for_change(args.root, args.change_id)
+    capture = {
+        key: value
+        for key, value in {
+            "story_id": args.story_id,
+            "theme": args.theme,
+            "brand": args.brand,
+            "viewport": args.viewport,
+            "state": args.state,
+        }.items()
+        if value
+    }
     root_path = resolve_cli_root(args.root)
-    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+    current = snap(args.root, root_path)
     profile = profile_from_state(args.root, current["worktree_id"])
     try:
         record_evidence(
@@ -603,15 +629,75 @@ def cmd_record_evidence(argv: Sequence[str]) -> int:
             current["fingerprint"],
             profile.get("plan_hash") or "",
             profile.get("plan_context_hash") or "",
-            args.obligation_id,
+            obligation_id,
             args.kind,
             args.artifact,
             base_oid=str(profile.get("base_oid") or ""),
+            change_id=args.change_id,
+            capture=capture or None,
         )
     except ValueError as exc:
         sys.stderr.write("record-evidence: %s\n" % exc)
         return 2
     return 0
+
+
+def cmd_migration_evidence(argv: Sequence[str]) -> int:
+    import argparse
+
+    from dispatch.common import snap
+    from lib.ledger import current_state
+    from lib.migration_evidence import load_manifest, render_pr_body, revalidate_migration_manifest
+    from lib.plan_profile import profile_from_state
+
+    parser = argparse.ArgumentParser(prog="migration-evidence")
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    verify = sub.add_parser("verify")
+    verify.add_argument("--root", required=True)
+    verify.add_argument("--manifest", required=True)
+    verify.add_argument("--json", action="store_true", dest="as_json")
+
+    pr_body = sub.add_parser("pr-body")
+    pr_body.add_argument("--manifest", required=True)
+    pr_body.add_argument("--output", default="")
+
+    args = parser.parse_args(argv)
+    manifest = load_manifest(args.manifest)
+    if args.action == "pr-body":
+        body = render_pr_body(manifest)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as handle:
+                handle.write(body)
+        else:
+            sys.stdout.write(body)
+        return 0
+
+    root_path = resolve_cli_root(args.root)
+    current = snap(args.root, root_path)
+    profile = profile_from_state(args.root, current["worktree_id"])
+    state = current_state()
+    errors = revalidate_migration_manifest(
+        root_path,
+        state,
+        args.root,
+        current["worktree_id"],
+        manifest,
+        profile.get("plan_context_hash") or "",
+        base_oid=str(profile.get("base_oid") or ""),
+        fingerprint=current["fingerprint"],
+    )
+    if args.as_json:
+        json.dump({"errors": list(errors), "ok": not errors}, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        if errors:
+            sys.stderr.write("migration-evidence verify failed:\n")
+            for item in errors:
+                sys.stderr.write("- %s\n" % item)
+        else:
+            sys.stdout.write("migration-evidence verify ok\n")
+    return 1 if errors else 0
 
 
 def cmd_ship_plan(argv: Sequence[str]) -> int:
@@ -856,6 +942,7 @@ SUBCOMMANDS = {
     "verify": cmd_verify,
     "preview-obligations": cmd_preview_obligations,
     "record-evidence": cmd_record_evidence,
+    "migration-evidence": cmd_migration_evidence,
     "ship-plan": cmd_ship_plan,
     "session-status": cmd_session_status,
     "handoff": cmd_handoff,

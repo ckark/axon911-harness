@@ -70,10 +70,13 @@ def register_evidence(
     artifact_size: int,
     base_oid: str = "",
     session_id: str = "",
+    change_id: str = "",
+    capture: Optional[Mapping[str, str]] = None,
     base: Optional[str] = None,
 ) -> Dict[str, Any]:
     if kind not in EVIDENCE_KINDS:
         raise ValueError("invalid evidence kind")
+    capture = capture or {}
     return append_record(
         {
             "kind": "evidence_record",
@@ -89,6 +92,12 @@ def register_evidence(
             "artifact_hash": artifact_hash,
             "artifact_size": artifact_size,
             "base_oid": base_oid,
+            "change_id": change_id,
+            "capture_story_id": str(capture.get("story_id") or ""),
+            "capture_theme": str(capture.get("theme") or ""),
+            "capture_brand": str(capture.get("brand") or ""),
+            "capture_viewport": str(capture.get("viewport") or ""),
+            "capture_state": str(capture.get("state") or ""),
             "status": STATUS_PASS,
         },
         base=base,
@@ -107,6 +116,8 @@ def record_evidence(
     artifact_path: str,
     base_oid: str = "",
     session_id: str = "",
+    change_id: str = "",
+    capture: Optional[Mapping[str, str]] = None,
     base: Optional[str] = None,
 ) -> Dict[str, Any]:
     digest, size = validate_artifact(root_path, artifact_path)
@@ -123,6 +134,8 @@ def record_evidence(
         size,
         base_oid=base_oid,
         session_id=session_id,
+        change_id=change_id,
+        capture=capture,
         base=base,
     )
 
