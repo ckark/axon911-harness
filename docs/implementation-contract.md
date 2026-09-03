@@ -75,7 +75,7 @@ The harness additionally runs the rules the repo switched off, scoped to the
 lines this change touched:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}"/harness/cli.py ui-principles --root axon911-frontend
+python3 harness/cli.py ui-principles --root axon911-frontend
 ```
 
 Under Cursor the harness is a workspace root rather than a plugin, so the same

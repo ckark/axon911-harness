@@ -1,17 +1,14 @@
 ---
 name: capture-evidence
 description: Capture rendered evidence for a user-visible change and bind it to the current fingerprint, so the rendered-evidence obligation is satisfied by an artifact rather than an assertion. Use before claiming a UI change done.
-disable-model-invocation: true
-argument-hint: [root=<root id>] [component=<name>] [story=<story id>]
-allowed-tools: Read Grep Glob Bash(python3 ${CLAUDE_PLUGIN_ROOT}/harness/*) Bash(pnpm *) Bash(git *)
 ---
 
 # Capture Rendered Evidence
 
-`${CLAUDE_PLUGIN_ROOT}/docs/implementation-contract.md` requires rendered
-evidence for anything a user sees. A green typecheck is not rendered evidence.
-This skill produces the artifact and binds it to the fingerprint of the tree it
-was captured from, so it cannot silently go stale.
+`docs/implementation-contract.md` requires rendered evidence for anything a user
+sees. A green typecheck is not rendered evidence. This skill produces the
+artifact and binds it to the fingerprint of the tree it was captured from, so
+it cannot silently go stale.
 
 ## Pick the route by what changed
 
@@ -45,8 +42,7 @@ browser-mode a11y and interaction tests.
 4. Write artifacts under `.harness/runtime/evidence/<fingerprint>/`, named by
    obligation id. Get the current fingerprint from the harness rather than
    guessing it.
-5. Re-run `/a911-harness:implementation-check` so the obligation resolves
-   against the artifact.
+5. Re-run `/implementation-check` so the obligation resolves against the artifact.
 
 ## Rules
 

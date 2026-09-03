@@ -8,7 +8,7 @@ below still sets **which** critics apply.
 Tier is **computed, not asserted**:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}"/harness/cli.py tier --root <root> --stated <tier> --json
+python3 harness/cli.py tier --root <root> --stated <tier> --json
 ```
 
 Under Cursor, run it from the harness root as

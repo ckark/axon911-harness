@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from .constants import (
     RECOVERY_COMMAND,
+    REVIEW_MODE_ALWAYS,
+    REVIEW_MODE_OFF,
+    REVIEW_MODE_ON_REQUEST,
     STATUS_BLOCKED,
     STATUS_INCONCLUSIVE,
     STATUS_PASS,
@@ -15,7 +19,27 @@ from .ledger import LedgerError, append_record, current_state
 from .obligations import required_ids, triggered_obligations
 
 TIER_RANK = {"T0": 0, "T1": 1, "T2": 2}
-T2_MIN_CRITICS = 3
+
+
+def review_mode() -> str:
+    """Whether mutation gates require a review receipt."""
+    raw = os.environ.get("HARNESS_REVIEW_MODE", REVIEW_MODE_OFF).strip().lower()
+    if raw in (REVIEW_MODE_OFF, REVIEW_MODE_ON_REQUEST, REVIEW_MODE_ALWAYS):
+        return raw
+    return REVIEW_MODE_OFF
+
+
+def review_required(tier: str) -> bool:
+    mode = review_mode()
+    if mode == REVIEW_MODE_ALWAYS:
+        return True
+    if mode == REVIEW_MODE_ON_REQUEST:
+        return os.environ.get("HARNESS_REVIEW_REQUESTED", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+    return False
 
 
 def issue_verification_receipt(
@@ -66,13 +90,8 @@ def issue_review_receipt(
     for critic in critic_ids:
         if critic not in unique:
             unique.append(critic)
-    if tier == "T0" and len(unique) < 1:
+    if len(unique) < 1:
         status = STATUS_BLOCKED
-    elif tier == "T1" and len(unique) < 2:
-        status = STATUS_BLOCKED
-    elif tier == "T2":
-        if "review-adjudicator" not in unique or len(unique) < T2_MIN_CRITICS:
-            status = STATUS_BLOCKED
     record = {
         "kind": "review_receipt",
         "root": root,
@@ -157,43 +176,7 @@ def active_plan(state: Mapping[str, Any], root: str, worktree_id: str) -> Dict[s
     }
 
 
-# Distinct identity-bound critics a tier requires. T2's panel is selected by
-# change signal so its size varies; three plus an adjudicator is the floor.
-TIER_CARDINALITY = {"T0": 1, "T1": 2, "T2": 3}
-ADJUDICATOR_SUFFIX = "review-adjudicator"
-
-
-def identity_bound_critics(
-    state: Mapping[str, Any],
-    root: str,
-    worktree_id: str,
-    fingerprint: str,
-    plan_hash: str,
-) -> List[str]:
-    """Critics whose return was recorded by the host, not claimed in prose.
-
-    Populated from Claude Code's `SubagentStop`, which carries `agent_type` and
-    `agent_id`. Empty under hosts that expose no subagent identity.
-    """
-    bucket = (state.get("critics") or {}).get(_key(root, worktree_id, fingerprint)) or {}
-    return sorted(
-        critic_id
-        for critic_id, meta in bucket.items()
-        if critic_id and str(meta.get("plan_hash") or "") == str(plan_hash or "")
-    )
-
-
-def _cardinality_satisfied(critics: Sequence[str], min_tier: str) -> bool:
-    needed = TIER_CARDINALITY.get(min_tier, 1)
-    if len(critics) < needed:
-        return False
-    if min_tier == "T2":
-        return any(critic.endswith(ADJUDICATOR_SUFFIX) for critic in critics)
-    return True
-
-
 def _review_satisfied(receipts: Sequence[Mapping[str, Any]], min_tier: str, plan_hash: str) -> bool:
-    needed = TIER_RANK.get(min_tier, 0)
     for item in receipts:
         if item.get("kind") != "review_receipt":
             continue
@@ -204,9 +187,58 @@ def _review_satisfied(receipts: Sequence[Mapping[str, Any]], min_tier: str, plan
             continue
         if item.get("plan_hash") != plan_hash:
             continue
-        got = obligation_id.split(".", 1)[-1]
-        if TIER_RANK.get(got, -1) >= needed:
-            return True
+        return True
+    return False
+
+
+def _confined_review_satisfied(
+    state: Mapping[str, Any],
+    root: str,
+    worktree_id: str,
+    fingerprint: str,
+    min_tier: str,
+    plan_hash: str,
+    changed_paths: Sequence[str],
+) -> bool:
+    """Accept a review receipt from a prior fingerprint when edits stay confined."""
+    if not changed_paths:
+        return False
+    bucket = (state.get("receipts") or {}).get(_key(root, worktree_id, fingerprint)) or []
+    for item in bucket:
+        if item.get("kind") != "review_receipt":
+            continue
+        if item.get("status") != STATUS_PASS:
+            continue
+        if item.get("plan_hash") != plan_hash:
+            continue
+        if not item.get("confined"):
+            continue
+        allowed = set(str(path) for path in item.get("confined_paths") or [])
+        if allowed and all(path in allowed for path in changed_paths):
+            obligation_id = str(item.get("obligation_id") or "")
+            got = obligation_id.split(".", 1)[-1] if obligation_id.startswith("review.") else ""
+            if TIER_RANK.get(got, -1) >= TIER_RANK.get(min_tier, 0):
+                return True
+    for prior_fp, receipts in (state.get("receipts") or {}).items():
+        if not prior_fp.startswith("%s:%s:" % (root, worktree_id)):
+            continue
+        if prior_fp.endswith(":%s" % fingerprint):
+            continue
+        for item in receipts:
+            if item.get("kind") != "review_receipt":
+                continue
+            if item.get("status") != STATUS_PASS:
+                continue
+            if item.get("plan_hash") != plan_hash:
+                continue
+            if not item.get("confined"):
+                continue
+            allowed = set(str(path) for path in item.get("confined_paths") or [])
+            if allowed and all(path in allowed for path in changed_paths):
+                obligation_id = str(item.get("obligation_id") or "")
+                got = obligation_id.split(".", 1)[-1] if obligation_id.startswith("review.") else ""
+                if TIER_RANK.get(got, -1) >= TIER_RANK.get(min_tier, 0):
+                    return True
     return False
 
 
@@ -217,6 +249,7 @@ def evaluate_gate(
     required_obligation_ids: Sequence[str],
     plan_hash: str,
     tier: str,
+    changed_paths: Optional[Sequence[str]] = None,
     base: Optional[str] = None,
 ) -> Dict[str, Any]:
     try:
@@ -248,19 +281,19 @@ def evaluate_gate(
             missing.append(obligation_id)
     review_needed = any(item.startswith("review.") for item in required_obligation_ids)
     if review_needed:
-        if not _review_satisfied(receipts, expected_tier, expected_plan):
-            missing.append("review.%s" % expected_tier)
-        else:
-            # The review receipt is issued by the orchestrator, so on its own it
-            # is self-attested. Where the host records who actually returned,
-            # require the tier's cardinality against those identities too. Hosts
-            # that expose no subagent identity keep the receipt-only behavior:
-            # this supplements review receipts, it never replaces them.
-            critics = identity_bound_critics(
-                state, root, worktree_id, fingerprint, expected_plan
+        review_ok = _review_satisfied(receipts, expected_tier, expected_plan)
+        if not review_ok and changed_paths:
+            review_ok = _confined_review_satisfied(
+                state,
+                root,
+                worktree_id,
+                fingerprint,
+                expected_tier,
+                expected_plan,
+                changed_paths,
             )
-            if critics and not _cardinality_satisfied(critics, expected_tier):
-                missing.append("review.%s.cardinality" % expected_tier)
+        if not review_ok:
+            missing.append("review.%s" % expected_tier)
     if missing:
         ids = ",".join(sorted(set(missing)))
         return {
@@ -314,7 +347,8 @@ def default_required(
     tier: str,
 ) -> List[str]:
     ids = required_ids(root, changed_paths, user_visible, existing_surface)
-    ids.append("review.%s" % tier)
+    if review_required(tier):
+        ids.append("review.%s" % tier)
     return ids
 
 

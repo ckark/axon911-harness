@@ -57,23 +57,17 @@ Cursor Agent normally.
   repository's own instructions.
 - Plans follow `docs/plan-contract.md`. Implementation follows
   `docs/implementation-contract.md`.
-- Cursor discovers skills dynamically. It may select `adversarial-review` when
-  a request clearly asks for a formal review, but ordinary coding does not run
-  all critics.
-- Custom critics are workers for the formal review workflow. They do not run
-  independently on every prompt.
-- Use `/plan-check` as the cheap plan gate (ref manifest + claim ledger, no
-  critics) before implementing.
-- Use `/adversarial-review` when you require the formal, read-only review
-  gate. Explicit invocation is the reliable choice for an approval decision.
-- Blast-radius tiers in `docs/routing-matrix.md` set panel depth:
-  - `T0` — one critic, narrow leaf change (importer count required)
-  - `T1` — two critics
-  - `T2` — full panel for public contracts, auth/PII, realtime, or cross-root
-- Ordinary changes still need a fresh-context pass at their tier. Authoring-
-  context self-review is not enough.
-- Use `/implementation-check` to attest repository-owned commands and issue
-  review receipts before an Agent-shell commit or push.
+- Default posture is **mechanical on, panel off** — see `docs/workspace-rule.md`.
+- Use `/plan-check` as the cheap plan gate before implementing.
+- Use `/adversarial-review` only when the panel trigger list applies or you
+  explicitly want formal review. One bespoke critic (`design-system-critic`)
+  plus Cursor `bugbot` / `security-review`; no adjudicator.
+- Blast-radius tier (`python3 harness/cli.py tier --json`) informs trigger
+  decisions; it no longer selects panel size.
+- Use `/implementation-check` to attest repository-owned commands before commit
+  or push. Use `python3 harness/cli.py verify` for mechanical coverage.
+- Read `docs/session-budget.md` — stop long sessions at ~60 turns.
+- Use `python3 harness/cli.py cost <transcript.jsonl>` to estimate session cost.
 - Use `/harness-health-check` after setup changes or a Cursor update, not before
   every task.
 - Cursor wiring, CLI commands, and gate surprises are in

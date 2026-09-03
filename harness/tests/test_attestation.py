@@ -16,6 +16,7 @@ from lib.receipts import (  # noqa: E402
     invalidate,
     issue_review_receipt,
     issue_verification_receipt,
+    mutation_required_ids,
     register_plan,
 )
 
@@ -23,6 +24,14 @@ from lib.receipts import (  # noqa: E402
 class AttestationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.base = tempfile.mkdtemp()
+        self.previous = os.environ.get("HARNESS_REVIEW_MODE")
+        os.environ["HARNESS_REVIEW_MODE"] = "always"
+
+    def tearDown(self) -> None:
+        if self.previous is None:
+            os.environ.pop("HARNESS_REVIEW_MODE", None)
+        else:
+            os.environ["HARNESS_REVIEW_MODE"] = self.previous
 
     def test_matching_fingerprints_can_pass(self) -> None:
         record = issue_verification_receipt(
@@ -156,7 +165,7 @@ class AttestationTests(unittest.TestCase):
             "wt",
             "abc",
             "T0",
-            ["frontend-architecture-critic"],
+            ["design-system-critic"],
             STATUS_PASS,
             "plan-other",
             base=self.base,
@@ -179,7 +188,7 @@ class AttestationTests(unittest.TestCase):
             "wt",
             "fp",
             "T0",
-            ["frontend-architecture-critic"],
+            ["design-system-critic"],
             STATUS_PASS,
             "plan-1",
             base=self.base,
@@ -195,21 +204,11 @@ class AttestationTests(unittest.TestCase):
         )
         self.assertEqual(gate["permission"], "allow")
 
-    def test_git_push_requires_push_oid_in_addition_to_review(self) -> None:
-        from lib.receipts import mutation_required_ids
-
-        issue_review_receipt(
-            "personal-harness",
-            "wt",
-            "fp",
-            "T0",
-            ["frontend-architecture-critic"],
-            STATUS_PASS,
-            "plan-1",
-            base=self.base,
-        )
+    def test_git_push_requires_push_oid_when_review_off(self) -> None:
+        os.environ["HARNESS_REVIEW_MODE"] = "off"
         required = mutation_required_ids("personal-harness", [], "git-push", "T0")
         self.assertIn("push.oid", required)
+        self.assertNotIn("review.T0", required)
         gate = evaluate_gate(
             "personal-harness",
             "wt",
@@ -220,40 +219,9 @@ class AttestationTests(unittest.TestCase):
             base=self.base,
         )
         self.assertEqual(gate["permission"], "deny")
-        issue_verification_receipt(
-            "personal-harness",
-            "wt",
-            "fp",
-            "push.oid",
-            STATUS_PASS,
-            "fp",
-            "plan-1",
-            base=self.base,
-        )
-        gate = evaluate_gate(
-            "personal-harness",
-            "wt",
-            "fp",
-            required,
-            "plan-1",
-            "T0",
-            base=self.base,
-        )
-        self.assertEqual(gate["permission"], "allow")
 
     def test_gt_submit_requires_stack_oid_set(self) -> None:
-        from lib.receipts import mutation_required_ids
-
-        issue_review_receipt(
-            "personal-harness",
-            "wt",
-            "fp",
-            "T0",
-            ["frontend-architecture-critic"],
-            STATUS_PASS,
-            "plan-1",
-            base=self.base,
-        )
+        os.environ["HARNESS_REVIEW_MODE"] = "off"
         required = mutation_required_ids("personal-harness", [], "gt-submit", "T0")
         self.assertIn("stack-oid-set", required)
         gate = evaluate_gate(

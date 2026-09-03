@@ -20,7 +20,7 @@ import unittest
 HARNESS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, HARNESS)
 
-from dispatch import claude  # noqa: E402
+from dispatch import cursor  # noqa: E402
 from dispatch.common import resolve_cli_root, resolve_root  # noqa: E402
 from lib.paths import PathError, identify_root, worktree_identity  # noqa: E402
 
@@ -157,35 +157,32 @@ class MultiWorktreeTests(unittest.TestCase):
         with open(os.path.join(self.primary, "packages/ui-core/src/widget.ts"), "w") as f:
             f.write("export const Widget = 1;\n")
 
-        primary_result = claude.handle_event(
-            "Stop", json.dumps({"session_id": "p", "cwd": self.primary}).encode()
+        primary_result = cursor.handle_event(
+            "stop", json.dumps({"session_id": "p", "cwd": self.primary}).encode()
         )
-        second_result = claude.handle_event(
-            "Stop", json.dumps({"session_id": "s", "cwd": self.second}).encode()
+        second_result = cursor.handle_event(
+            "stop", json.dumps({"session_id": "s", "cwd": self.second}).encode()
         )
-        primary_reason = (primary_result.get("hookSpecificOutput") or {}).get(
-            "permissionDecisionReason", ""
-        )
-        self.assertIn("axon911-frontend.ui-allowlist", primary_reason)
-        self.assertEqual(second_result, {}, "the second worktree has no relevant changes of its own")
+        primary_message = primary_result.get("followup_message") or ""
+        self.assertIn("Proof is missing or stale", primary_message)
+        self.assertNotIn("followup_message", second_result)
 
     def test_bash_mutation_in_the_second_worktree_is_gated_as_axon(self) -> None:
         """A git commit attempted from the second worktree must resolve to
         axon911-frontend, not `root=unknown` and not silently pass through."""
-        result = claude.handle_event(
-            "PreToolUse",
+        result = cursor.handle_event(
+            "beforeShellExecution",
             json.dumps(
                 {
-                    "tool_name": "Bash",
-                    "tool_input": {"command": "git push --force origin trunk"},
+                    "command": "git push --force origin trunk",
                     "cwd": self.second,
                 }
             ).encode(),
         )
-        reason = (result.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
-        self.assertIn("root=axon911-frontend", reason)
-        self.assertNotIn("root=unknown", reason)
-        self.assertNotIn("root=personal-harness", reason)
+        message = result.get("agent_message") or result.get("user_message") or ""
+        self.assertIn("root=axon911-frontend", message)
+        self.assertNotIn("root=unknown", message)
+        self.assertNotIn("root=personal-harness", message)
 
 
 if __name__ == "__main__":

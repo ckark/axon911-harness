@@ -7,8 +7,11 @@ description: Cheap plan gate that verifies a plan against the personal plan cont
 
 This skill is read-only. It never applies fixes and never launches critics.
 
-Use for ordinary plan quality gates. Keep `/adversarial-review mode=plan` for
-`T2` plans that need the full specialist panel.
+Use for ordinary plan quality gates. Before `/adversarial-review`, confirm
+scope is frozen; unfrozen plans must not be paneled.
+
+Do not invoke `/adversarial-review mode=plan` until plan-check passes and the
+user confirms scope will not change.
 
 ## Context loading
 

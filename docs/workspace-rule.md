@@ -1,9 +1,7 @@
 # Axon 911 Workspace Rule
 
-Always-on guidance for work across the four roots. The Claude Code plugin
-injects this at `SessionStart` when the working directory resolves inside a
-configured root; the Cursor rule at `.cursor/rules/prepared911-workspace.mdc`
-points here so the two hosts cannot drift.
+Always-on guidance for work across the four roots. Cursor loads this through
+`.cursor/rules/prepared911-workspace.mdc` at session start.
 
 ## Roots
 
@@ -22,8 +20,7 @@ precedence. `axon911-frontend/AGENTS.md:121` and `docs/VENDORING.md` are
 authoritative: fix bugs in axon911-frontend; prepared911 consumes the published
 artifact. Do not re-sync ui-* from prepared911 and do not restore `SOURCE.md`.
 
-prepared911 remains authoritative for its own application code — dispatch,
-beacon, and the Ruby and Go services.
+prepared911 remains authoritative for its own application code.
 
 Each repository's own instructions take precedence for work in that repository.
 The harness coordinates; it does not redefine project coding standards.
@@ -35,24 +32,64 @@ is flat (`packages/ui-*`, `apps/docs`, `apps/storybook`); prepared911 nests unde
 `turbo/`. Never transfer one root's paths, commands, or conventions to another.
 
 In axon911-frontend, run `pnpm dlx @tanstack/intent@latest list` before a
-substantial change, per the generated block at the top of its `AGENTS.md`. Never
-hand-edit the `<!-- intent-skills:start/end -->` block: `pnpm check` runs
-`intent:check`, which fails on any drift.
+substantial change, per the generated block at the top of its `AGENTS.md`.
 
-## Verification has a blind spot
+## Verification blind spot
 
 `pnpm check` and `pnpm lint` give **no signal** on `packages/ui-*` or
-`apps/docs` — oxlint ignores both trees (CORE-754 debt, `docs/LINT-POLICY.md`).
-In those paths evidence means `pnpm turbo run typecheck`, `pnpm test:unit:run`,
-and `pnpm test:storybook:ci`. A green `pnpm check` is not evidence there.
+`apps/docs`. In those paths evidence means `pnpm turbo run typecheck`,
+`pnpm test:unit:run`, and `pnpm test:storybook:ci`.
+
+## Default posture: mechanical on, panel off
+
+The harness mechanical half (Python hooks, fingerprint-bound receipts,
+conformance, mirror warnings) runs by default at near-zero token cost.
+
+The LLM review panel is **off by default** (`HARNESS_REVIEW_MODE=off`). Code
+review comes from Cursor `bugbot` plus the human PR reviewer.
+
+Run `/adversarial-review` only when one of these is true:
+
+- breaking change to a published `@prepared911/ui-*` API that prepared911 consumes
+- blast radius beyond one reviewer's head (`T2`, or `pr-blast-radius` finds
+  consumers in both roots)
+- no human reviewer will have CORE-754 authority context
+- expensive to reverse (package publish or downstream migration)
+- you ask for it explicitly
+
+Keep the panel off during exploration, prototyping, `vault-core-ux`, and
+`personal-harness` work unless asked.
+
+Raise review gating temporarily with `HARNESS_REVIEW_MODE=on-request` and
+`HARNESS_REVIEW_REQUESTED=1`, or `HARNESS_REVIEW_MODE=always`.
+
+## Session budget
+
+Read `docs/session-budget.md`. Stop at ~60 assistant turns or ~80k context.
+Write `.harness/runtime/handoff/<plan-hash>.md` before starting a fresh session.
+
+The orchestrator delegates exploration to subagents and does not re-read what a
+subagent already reported.
+
+## Reuse before rebuild
+
+Prefer existing tooling over bespoke harness critics:
+
+- General review: Cursor `bugbot` and `security-review`
+- Docs baseline: `prepared-docs` MCP when ui-* or docs paths changed
+- Blast radius: team `pr-blast-radius` skill
+- Rendered evidence: Storybook MCP `run-story-tests`, `/capture-evidence`
+- Mechanical checks: team `pre-summary-checks`
+- PR body: `pr-context-generator`, `pull-request-standards`
+- Branches: Graphite / Cursor Review
 
 ## Contracts
 
-- Plans follow `docs/plan-contract.md`; prefer `/plan-check` before implementing.
-- Implementation follows `docs/implementation-contract.md`.
-- Blast-radius tiers are computed, not asserted — see `docs/routing-matrix.md`.
-- Runtime gating follows `docs/runtime-contract.md`. Local hooks are cooperative
-  assurance, not a security boundary.
+- Plans: `docs/plan-contract.md`; prefer `/plan-check` before implementing.
+- Implementation: `docs/implementation-contract.md`; `/implementation-check`
+  before committing.
+- Blast-radius tiers: computed via `python3 harness/cli.py tier --json`.
+- Runtime gating: `docs/runtime-contract.md`.
 
 ## Safety
 
@@ -60,3 +97,9 @@ and `pnpm test:storybook:ci`. A green `pnpm check` is not evidence there.
 - Do not modify any product root during a review-only task.
 - Preserve pre-existing dirty working trees in every root.
 - Report the root containing every modified file.
+
+## Hook scope (sibling roots)
+
+Cursor project hooks in this harness checkout apply when the workspace includes
+this repository. Product roots use explicit `/implementation-check` plus optional
+PR Automations; hooks are not assumed active in sibling roots until configured.

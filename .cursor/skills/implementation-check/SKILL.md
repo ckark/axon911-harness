@@ -1,81 +1,52 @@
 ---
 name: implementation-check
-description: Attest root-owned verification, gather fingerprint-bound evidence, validate critic reports, and issue review receipts. Use before Agent-shell commits or pushes, after a stop follow-up, or when claiming implementation done.
+description: Attest root-owned verification, gather fingerprint-bound evidence, optionally validate critic reports, and issue review receipts. Use before commits or pushes, after a stop follow-up, or when claiming implementation done.
 ---
 
 # Implementation Check
 
-Local receipts are cooperative assurance. They are not tamper-proof, not
-atomic Git enforcement, and not a security boundary against a hostile local
-process.
-
-This skill is the only review-receipt issuer. The attesting wrapper is the
-only verification-receipt issuer. Event hooks only record observations.
+Local receipts are cooperative assurance, not tamper-proof enforcement.
 
 ## Context loading
 
-1. Resolve the harness with `docs/review-contract.md`.
-2. Read `docs/runtime-contract.md` completely.
-3. Read `docs/implementation-contract.md` for per-root verification commands.
-4. Read `docs/routing-matrix.md` only for the blast-radius tier.
-5. Resolve roots with
-   [repository-router.md](../adversarial-review/references/repository-router.md).
-
-## Inputs
-
-- `root`: One of `personal-harness`, `prepared911`, `axon911-frontend`,
-  `vault-core-ux`
-- `tier`: `T0`, `T1`, or `T2`
-- `plan`: Path to the active plan file, if any
+1. Read `docs/runtime-contract.md` and `docs/implementation-contract.md`.
+2. Default posture is mechanical-on, panel-off (`HARNESS_REVIEW_MODE=off`).
 
 ## Procedure
 
-1. Identify changed paths in each affected root. Do not transfer one root's
-   commands to another.
-2. Hash the plan file and register it:
+1. Identify changed paths in each affected root.
+2. Register the plan when one exists:
 
    ```bash
-   PYTHONDONTWRITEBYTECODE=1 python3 .cursor/hooks/runtime_gate.py register-plan \
-     --root <root> --plan-hash <sha256> --tier <tier>
+   python3 harness/cli.py register-plan --root <root> --plan-hash <sha256> --tier <tier>
    ```
 
-3. Select root-owned obligations from `docs/runtime-contract.md`. Prepared911
-   and Axon UI package edits trigger independent allowlist, docs-registry,
-   docs-page, and rendered-evidence IDs. Vault and personal-harness disable
-   product UI obligations.
-4. Run each repository-owned check through the exclusive attesting wrapper.
-   Never treat a mutating command as `PASS`.
+3. Run root-owned checks through the attesting wrapper:
 
    ```bash
-   PYTHONDONTWRITEBYTECODE=1 python3 .cursor/hooks/runtime_gate.py attest \
-     --root <root> --obligation-id <id> --plan-hash <sha256> -- \
-     <argv>
+   python3 harness/cli.py attest --root <root> --obligation-id <id> --plan-hash <sha256> -- <argv>
    ```
 
-5. Gather fingerprint-bound rendered evidence for user-visible surfaces.
-   New surfaces need after-state evidence. Changed existing surfaces need
-   before-and-after evidence. Missing, stale, incomplete, or cross-root
-   evidence blocks.
-6. Re-check plan drift after the first attested command and at phase
-   boundaries. If the plan hash moved, register the new hash and rerun.
-7. Dispatch a fresh-context review at the required tier. T0 needs one
-   applicable critic. T1 needs two independent applicable critics. T2 needs
-   the signal-selected panel plus `review-adjudicator`. The mechanical
-   verifier supplements these receipts; it never replaces them.
-8. Validate each critic report against `docs/review-contract.md` before
-   issuing a review receipt. Reject unvalidated `subagentStop` summaries.
+4. Capture rendered evidence via `/capture-evidence` when user-visible surfaces changed.
+5. Mechanical verification:
 
    ```bash
-   PYTHONDONTWRITEBYTECODE=1 python3 .cursor/hooks/runtime_gate.py issue-review-receipt \
+   python3 harness/cli.py verify --root <root> --json
+   ```
+
+6. **Review receipt (optional by default):** only when `/adversarial-review` ran
+   or `HARNESS_REVIEW_MODE` is raised. Validate the report file at
+   `.harness/runtime/reports/design-system-critic-<fingerprint>.md`, not prose
+   in context. Then:
+
+   ```bash
+   python3 harness/cli.py issue-review-receipt \
      --root <root> --tier <tier> --plan-hash <sha256> --status PASS \
-     --critic <id> [--critic <id> ...]
+     --critic design-system-critic
    ```
 
-9. For a supported push, attest `push.oid` against the resolved source OID.
-   For `gt submit`, attest `stack-oid-set`. Commits and pushes are separate
-   commands.
+7. For push: attest `push.oid`. For `gt submit`: attest `stack-oid-set`.
 
 ## Recovery
 
-If a mutation preflight or stop gate denies, rerun this skill against the
-current fingerprint. The recovery command is `/implementation-check`.
+If a gate denies, rerun this skill against the current fingerprint.

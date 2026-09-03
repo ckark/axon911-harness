@@ -29,6 +29,14 @@ class CursorEventContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.mkdtemp()
         os.environ["HARNESS_RUNTIME_DIR"] = self.tmp
+        self.previous_review = os.environ.get("HARNESS_REVIEW_MODE")
+        os.environ["HARNESS_REVIEW_MODE"] = "always"
+
+    def tearDown(self) -> None:
+        if self.previous_review is None:
+            os.environ.pop("HARNESS_REVIEW_MODE", None)
+        else:
+            os.environ["HARNESS_REVIEW_MODE"] = self.previous_review
 
     def test_valid_payloads_parse(self) -> None:
         samples = {

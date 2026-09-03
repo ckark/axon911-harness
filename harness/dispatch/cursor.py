@@ -1,8 +1,7 @@
 """Cursor hook event dispatcher.
 
 Event names, payload shape, and response envelope are Cursor's. The decisions
-come from `lib.receipts.evaluate_gate` and `lib.shell_gate.classify`, shared
-with the Claude Code dispatcher in `dispatch.claude`.
+come from `lib.receipts.evaluate_gate` and `lib.shell_gate.classify`.
 """
 
 from __future__ import annotations
@@ -10,7 +9,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Mapping
 
-from dispatch.common import required_for, root_for, shell_decision, snap
+from dispatch.common import required_for, resolve_root, root_for, shell_decision, snap
 from lib.constants import RECOVERY_COMMAND, STATUS_PASS
 from lib.ledger import append_record
 from lib.paths import PathError
@@ -64,7 +63,8 @@ def handle_event(event_name: str, raw: bytes) -> Dict[str, Any]:
 
     if event_name == "afterFileEdit":
         try:
-            current = snap(root_id)
+            _, root_path = resolve_root(str(payload.get("file_path") or cwd))
+            current = snap(root_id, root_path)
         except Exception:
             current = {"fingerprint": "unknown", "worktree_id": cwd}
         invalidate(root_id, current["worktree_id"], current.get("fingerprint") or "unknown")
@@ -100,17 +100,20 @@ def _stop(payload: Mapping[str, Any], root_id: str, cwd: Any) -> Dict[str, Any]:
         payload.get("session_id") or os.environ.get("CURSOR_SESSION_ID") or "default"
     )
     try:
-        current = snap(root_id)
+        _, root_path = resolve_root(str(cwd))
+        current = snap(root_id, root_path)
     except Exception:
         current = {"fingerprint": "", "worktree_id": cwd, "plan_hash": ""}
+        root_path = None
     count = increment_stop_loop(current.get("worktree_id") or cwd, session_id)
     if not stop_followup_allowed(count):
         return {}
-    required, registered = required_for(
+    required, registered, changed = required_for(
         root_id,
         "git-commit",
         current.get("plan_hash") or "",
         current.get("worktree_id") or cwd,
+        root_path,
     )
     gate = evaluate_gate(
         root_id,
@@ -119,6 +122,7 @@ def _stop(payload: Mapping[str, Any], root_id: str, cwd: Any) -> Dict[str, Any]:
         required_obligation_ids=required,
         plan_hash=registered.get("plan_hash") or current.get("plan_hash") or "",
         tier=registered.get("tier") or "T0",
+        changed_paths=changed,
     )
     if gate["status"] != STATUS_PASS:
         return {

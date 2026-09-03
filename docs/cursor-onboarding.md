@@ -11,23 +11,17 @@ This Cursor workspace uses the checkout at:
 /Users/ckark/Documents/CursorWorkspaces/prepared911-harness
 ```
 
-That checkout is `main` merged with `ckark/harness-attest-evals`. A sibling
-worktree remains at `prepared911-harness-attest-evals` on the named branch.
-One Python package, `harness/`, drives both hosts. Cursor enters through
-`.cursor/`; Claude Code enters through the
-`a911-harness` plugin. Neither host has logic of its own — a fix in `harness/`
-lands in both.
+That checkout is the Cursor-only harness (Claude Code plugin removed).
 
 ```
 .cursor/hooks.json            7 event bindings -> .cursor/hooks/runtime_gate.py
-.cursor/hooks/runtime_gate.py thin shim; adds harness/ to sys.path, calls cli.main()
-.cursor/agents/               7 read-only critics
+.cursor/hooks/runtime_gate.py thin shim; calls harness/cli.py
+.cursor/agents/               design-system-critic, evidence-verifier
 .cursor/skills/               plan-check, adversarial-review, implementation-check,
-                              harness-health-check
+                              harness-health-check, capture-evidence
 .cursor/rules/prepared911-workspace.mdc
-                              pointer only -- the rule itself is docs/workspace-rule.md
-docs/                         the contracts, shared by both hosts
-harness/cli.py                the CLI, below
+docs/                         contracts and workspace rule
+harness/cli.py                tier, verify, cost, attest, hooks dispatch
 ```
 
 ## Wiring it into a Cursor session

@@ -1,9 +1,4 @@
-"""Root resolution, fingerprints, and obligation selection shared by dispatchers.
-
-Both the Cursor and Claude Code dispatchers translate their host's event
-envelope into these calls. Nothing here is tool-specific; a behavior change
-here changes both hosts, which is the point.
-"""
+"""Root resolution, fingerprints, and obligation selection for Cursor hooks."""
 
 from __future__ import annotations
 
@@ -99,7 +94,7 @@ def required_for(
     except Exception:
         registered = {"plan_hash": plan_hash, "tier": "T0"}
     tier = registered.get("tier") or "T0"
-    return mutation_required_ids(root_id, paths, family, tier), registered
+    return mutation_required_ids(root_id, paths, family, tier), registered, paths
 
 
 # Ownership moved to axon911-frontend post CORE-754 (AGENTS.md:121,
@@ -171,7 +166,7 @@ def shell_decision(command: str, cwd: str) -> Dict[str, Any]:
             "message": sanitized_message("BLOCKED", root_id, "fingerprint"),
         }
 
-    required, registered = required_for(
+    required, registered, changed = required_for(
         root_id,
         classified.get("family") or "",
         current.get("plan_hash") or "",
@@ -185,6 +180,7 @@ def shell_decision(command: str, cwd: str) -> Dict[str, Any]:
         required_obligation_ids=required,
         plan_hash=registered.get("plan_hash") or current.get("plan_hash") or "",
         tier=registered.get("tier") or "T0",
+        changed_paths=changed,
     )
     return {
         "permission": gate["permission"],

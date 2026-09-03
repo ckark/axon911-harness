@@ -16,12 +16,11 @@ DEFAULT_ROOT_PATHS = {
     "vault-core-ux": "/Users/ckark/Documents/GitHub/vault-core-ux",
 }
 
-# Plugin `userConfig` values reach hooks as environment variables. Claude Code
-# names them CLAUDE_PLUGIN_OPTION_<KEY>; see .claude-plugin/plugin.json.
+# Override per-root paths without a plugin host. See docs/cursor-onboarding.md.
 ROOT_ENV_KEYS = {
-    "axon911-frontend": "CLAUDE_PLUGIN_OPTION_AXON911_ROOT",
-    "prepared911": "CLAUDE_PLUGIN_OPTION_PREPARED911_ROOT",
-    "vault-core-ux": "CLAUDE_PLUGIN_OPTION_VAULT_ROOT",
+    "axon911-frontend": "HARNESS_AXON911_ROOT",
+    "prepared911": "HARNESS_PREPARED911_ROOT",
+    "vault-core-ux": "HARNESS_VAULT_ROOT",
 }
 
 
@@ -34,14 +33,7 @@ def _is_harness_root(path: str) -> bool:
 
 
 def harness_root(start: Optional[str] = None) -> str:
-    """Locate the harness checkout without depending on the working directory.
-
-    Under Cursor the cwd was a workspace root, so walking up from cwd worked.
-    Under Claude Code the hooks run with the *product* repo as cwd, where that
-    walk finds nothing and every root would collapse to `personal-harness`.
-    So resolve from an explicit anchor first, and only then fall back to the
-    upward walk.
-    """
+    """Locate the harness checkout without depending on the working directory."""
     if start is not None:
         current = os.path.realpath(start)
         while True:
@@ -85,7 +77,7 @@ def runtime_dir(root: Optional[str] = None) -> str:
 def configured_roots(harness: Optional[str] = None) -> Dict[str, str]:
     """Resolve every root path.
 
-    Precedence per root: HARNESS_ROOTS_JSON, then the plugin userConfig env var,
+    Precedence per root: HARNESS_ROOTS_JSON, then HARNESS_*_ROOT env vars,
     then the on-disk default. `personal-harness` always resolves to the checkout
     the running code belongs to.
     """

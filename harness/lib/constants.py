@@ -39,9 +39,8 @@ ALLOWED_PERSISTED_FIELDS = (
     "evidence_pointer",
     "tier",
     "critic_id",
-    # Opaque per-invocation subagent correlator from Claude Code's hook input.
-    # Lets a critic's return be tied to its dispatch without trusting its prose.
-    "agent_id",
+    "confined",
+    "confined_paths",
     # Root-relative path globs a plan declared as its scope. Metadata about the
     # plan, not content from it: no diffs, prose, or commands are persisted.
     "scope",
@@ -56,3 +55,6 @@ STATUS_PASS = "PASS"
 STATUS_BLOCKED = "BLOCKED"
 STATUS_INCONCLUSIVE = "INCONCLUSIVE"
 RECOVERY_COMMAND = "/implementation-check"
+REVIEW_MODE_OFF = "off"
+REVIEW_MODE_ON_REQUEST = "on-request"
+REVIEW_MODE_ALWAYS = "always"

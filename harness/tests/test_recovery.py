@@ -116,22 +116,32 @@ class RecoveryTests(unittest.TestCase):
         self.assertFalse(os.path.exists(segment))
 
     def test_index_lookup_does_not_scan_history(self) -> None:
-        for index in range(20):
-            issue_review_receipt(
-                "personal-harness",
-                "wt",
-                "fp-%d" % index,
-                "T0",
-                ["frontend-architecture-critic"],
-                STATUS_PASS,
-                "",
-                base=self.base,
+        previous = os.environ.get("HARNESS_REVIEW_MODE")
+        os.environ["HARNESS_REVIEW_MODE"] = "always"
+        try:
+            for index in range(20):
+                issue_review_receipt(
+                    "personal-harness",
+                    "wt",
+                    "fp-%d" % index,
+                    "T0",
+                    ["design-system-critic"],
+                    STATUS_PASS,
+                    "",
+                    base=self.base,
+                )
+            started = time.time()
+            gate = evaluate_gate(
+                "personal-harness", "wt", "fp-19", ["review.T0"], "", "T0", base=self.base
             )
-        started = time.time()
-        gate = evaluate_gate("personal-harness", "wt", "fp-19", ["review.T0"], "", "T0", base=self.base)
-        elapsed = time.time() - started
-        self.assertEqual(gate["permission"], "allow")
-        self.assertLess(elapsed, 0.5)
+            elapsed = time.time() - started
+            self.assertEqual(gate["permission"], "allow")
+            self.assertLess(elapsed, 0.5)
+        finally:
+            if previous is None:
+                os.environ.pop("HARNESS_REVIEW_MODE", None)
+            else:
+                os.environ["HARNESS_REVIEW_MODE"] = previous
 
 
 if __name__ == "__main__":

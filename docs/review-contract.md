@@ -26,47 +26,32 @@ One of:
 - Evidence inspected:
 - Evidence unavailable:
 
+## Envelope (orchestrator context)
+
+Critics write the full report to
+`.harness/runtime/reports/<critic>-<fingerprint>.md`. The orchestrator receives
+only:
+
+- Verdict
+- Finding IDs with severity
+- Report path
+- Fingerprint and plan hash
+
+Full report text must not enter the orchestrator context.
+
 ## Findings
 
 For every finding provide:
 
-- **ID:** Domain-prefixed identifier:
-  - `DS-###` — design system
-  - `FA-###` — frontend architecture
-  - `PERF-###` — performance and reliability
-  - `SEC-###` — security and privacy
-  - `QA-###` — quality and accessibility
-  - `DOCS-DRIFT-###` — documentation differs from API, tests, or behavior
+- **ID:** Domain-prefixed identifier (`DS-###`, `FA-###`, `DOCS-DRIFT-###`, …)
 - **Severity:** `critical`, `high`, `medium`, `low`, or `informational`
-- **Confidence:** `high`, `medium`, or `low`
-- **Classification:** `confirmed defect`, `strong code-level risk`,
-  `measurement required`, or `informational`
-- **State:** `committed`, `uncommitted`, or `both`
-- **Target layer:** `plan-text` | `mid-stack-head` | `tip-residual` |
-  `process`
-  - `plan-text` — wording or contradiction inside the plan
-  - `mid-stack-head` — behavior at a named PR head the plan edits
-  - `tip-residual` — tip behavior the plan may intentionally leave or only
-    touch via restack
-  - `process` — harness or panel failure
-- **Location:** Exact `<ref>:<path>:<line>`, plan section, public API, or
-  command output
+- **Location:** Exact `<ref>:<path>:<line>`, plan section, public API, or command output
 - **Evidence:** What was directly observed
-- **Failure mode:** What can plausibly go wrong
-- **Recommendation:** The smallest correction at the layer all affected paths
-  flow through, plus the complete instance list. Prefer the shared helper,
-  `ui-core` primitive, or base module over a single call-site patch. List
-  every sibling instance that must also change, or explicitly mark deferred
-  instances as out of scope.
-- **Verification:** How to test the correction
-- **Verification command:** Required whenever the finding asserts provenance
-  or a number (line counts, file counts, "PR X adds Y", blob identity). A
-  provenance or numeric claim without this command is not admissible.
-- **Escalation:** Optional. When material risk falls outside the assigned
-  domain, write `Escalation: <critic> — <reason>` (for example
-  `Escalation: security-privacy-critic — client-only RBAC gate`). The
-  orchestrator must run the named critic or record an explicit refusal. An
-  unactioned escalation becomes a `process` finding for the adjudicator.
+- **Recommendation:** The smallest correction at the shared layer
+- **Verification command:** Required for provenance or numeric claims
+
+T0 short form: verdict, findings, one verification command, HEAD SHA only in
+scope reviewed (no four-ref manifest).
 
 ## Constraints
 
@@ -85,24 +70,14 @@ For every finding provide:
   plan's fix is wrong.
 - The target repository's instructions, public APIs, tests, and actual behavior
   take precedence over generic framework guidance.
-- The docs app is a required benchmark for design-system and frontend
-  architecture reviews, but stale docs must be reported as `DOCS-DRIFT`
-  rather than followed blindly.
+- The docs app is a required benchmark when `packages/ui-*` or `apps/docs`
+  changed; stale docs must be reported as `DOCS-DRIFT`. Prefer the
+  `prepared-docs` MCP over hand-read MDX.
 
 ## Docs benchmark
 
-The primary benchmark is axon911-frontend's docs app, which documents the
-packages axon911-frontend owns:
-
-- `apps/docs/mdx/design`
-- `apps/docs/mdx/engineering`
-- `apps/docs/generated/component-api-registry.json`
-
-prepared911's `turbo/apps/docs` is a secondary benchmark until its removal
-lands. Where the two disagree about `@prepared/ui-*`, axon911-frontend is
-correct and the divergence is a `DOCS-DRIFT-###` finding, not a judgment call.
-
-The design-system and frontend-architecture reports must include:
+Required only when changed paths touch `packages/ui-*`, `apps/docs`, or the
+prepared911 mirror. Source from the `prepared-docs` MCP when available.
 
 ```markdown
 ## Docs Benchmark
@@ -127,8 +102,7 @@ The design-system and frontend-architecture reports must include:
 - Docs versus implementation inconsistencies discovered:
 ```
 
-Missing this section invalidates a design-system or frontend-architecture
-report.
+Missing this section when ui-* or docs paths changed invalidates the report.
 
 ## Source priority
 
@@ -138,8 +112,7 @@ lives in. Post CORE-754 it owns all 14 `@prepared/ui-*` packages and publishes
 them as `@prepared911/ui-*`; prepared911 consumes the published artifacts and
 its own `turbo/packages/ui-*` copies are slated for removal.
 `axon911-frontend/AGENTS.md:121` and `axon911-frontend/docs/VENDORING.md` state
-this, and both are required reading for the design-system and
-frontend-architecture critics — including VENDORING's three authoring rules:
+this, and both are required reading for the design-system critic — including VENDORING's three authoring rules:
 fix bugs in axon911-frontend, do not re-sync from prepared911, do not restore
 `SOURCE.md`.
 
@@ -163,22 +136,3 @@ axon911-frontend is drift to report, not a competing source to weigh.
 Explain every conflict. Do not silently select a preferred source.
 For multi-root targets, also follow
 `.cursor/skills/adversarial-review/references/cross-repo-source-priority.md`.
-
-## Adjudicator rules
-
-- Reject findings that do not satisfy this contract.
-- Reject findings that reopen `remediated-by-plan` or `out-of-scope` ledger
-  rows as blockers without new counter-evidence.
-- Reject or downgrade `tip-residual` findings that the plan scopes out unless
-  they falsify a plan invariant.
-- Reject recommendations that patch a single call site when a shared-layer fix
-  is available and sibling instances remain untouched, unless the finding
-  explicitly defers those instances.
-- Treat an unactioned `Escalation` as a `process` finding; do not silently
-  drop it.
-- Merge duplicates without losing domain-specific consequences.
-- Do not decide by vote count.
-- `BLOCK` requires a confirmed critical issue or an unsafe high-severity issue.
-- `CHANGES REQUIRED` means material correction is required before approval.
-- `PASS WITH CONCERNS` means no blocker exists but follow-up work remains.
-- Human approval remains the final decision.

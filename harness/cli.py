@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-"""Harness entry point: hook event dispatch, the attesting wrapper, and receipts.
+"""Harness entry point: Cursor hook dispatch, attesting wrapper, and receipts.
 
-Invoked three ways:
+Invoked as:
 
   cli.py <cursorEvent>   camelCase  -> dispatch.cursor  (Cursor hooks.json)
-  cli.py <ClaudeEvent>   PascalCase -> dispatch.claude  (Claude Code hooks.json)
-  cli.py attest|register-plan|issue-review-receipt|benchmark
-
-Event names disambiguate the host, so one binary serves both without a flag.
+  cli.py attest|register-plan|issue-review-receipt|benchmark|tier|verify|cost
 """
 
 from __future__ import annotations
@@ -384,6 +381,134 @@ def cmd_conformance(argv: Sequence[str]) -> int:
     return 1 if report["status"] != STATUS_PASS else 0
 
 
+def cmd_verify(argv: Sequence[str]) -> int:
+    """Mechanical verification: obligations and receipt coverage for the current tree."""
+    import argparse
+
+    from dispatch.common import resolve_cli_root, roots as configured
+    from lib.fingerprint import changed_paths, snapshot
+    from lib.obligations import triggered_obligations
+    from lib.receipts import active_plan, evaluate_gate, mutation_required_ids
+
+    parser = argparse.ArgumentParser(prog="verify")
+    parser.add_argument("--root", default="axon911-frontend")
+    parser.add_argument("--family", default="git-commit")
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args(argv)
+
+    all_roots = configured()
+    if args.root not in all_roots:
+        sys.stderr.write("verify: unknown root %s\n" % args.root)
+        return 2
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash="")
+    try:
+        changed = changed_paths(root_path)
+    except Exception:
+        changed = []
+    state_plan = active_plan(
+        __import__("lib.ledger", fromlist=["current_state"]).current_state(),
+        args.root,
+        current["worktree_id"],
+    )
+    tier = state_plan.get("tier") or "T0"
+    plan_hash = state_plan.get("plan_hash") or ""
+    required = mutation_required_ids(args.root, changed, args.family, tier)
+    gate = evaluate_gate(
+        args.root,
+        current["worktree_id"],
+        current["fingerprint"],
+        required,
+        plan_hash,
+        tier,
+        changed_paths=changed,
+    )
+    report = {
+        "root": args.root,
+        "fingerprint": current["fingerprint"],
+        "plan_hash": plan_hash,
+        "tier": tier,
+        "changed_paths": changed,
+        "triggered_obligations": list(triggered_obligations(args.root, changed).keys()),
+        "required_obligation_ids": required,
+        "gate": gate,
+    }
+    if args.as_json:
+        json.dump(report, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write(
+            "verify %s gate=%s obligations=%s\n"
+            % (gate.get("status"), args.root, ",".join(required))
+        )
+    return 0 if gate.get("permission") == "allow" else 1
+
+
+def cmd_cost(argv: Sequence[str]) -> int:
+    """Estimate billed input tokens from a Cursor transcript JSONL file."""
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="cost")
+    parser.add_argument("transcript", help="Path to main thread .jsonl file")
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args(argv)
+
+    main_running = 0
+    main_billed = 0
+    main_turns = 0
+    for line in open(args.transcript, encoding="utf-8"):
+        main_running += len(line)
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("role") == "assistant":
+            main_turns += 1
+            main_billed += main_running
+
+    subagent_dir = os.path.join(os.path.dirname(args.transcript), "subagents")
+    sub_billed = 0
+    sub_count = 0
+    if os.path.isdir(subagent_dir):
+        for name in os.listdir(subagent_dir):
+            if not name.endswith(".jsonl"):
+                continue
+            sub_count += 1
+            running = 0
+            for line in open(os.path.join(subagent_dir, name), encoding="utf-8"):
+                running += len(line)
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if event.get("role") == "assistant":
+                    sub_billed += running
+
+    total = main_billed + sub_billed
+    report = {
+        "main_assistant_turns": main_turns,
+        "main_billed_tokens_estimate": int(main_billed / 4),
+        "subagent_count": sub_count,
+        "subagent_billed_tokens_estimate": int(sub_billed / 4),
+        "total_billed_tokens_estimate": int(total / 4),
+        "main_thread_share": round(main_billed / total, 3) if total else 1.0,
+    }
+    if args.as_json:
+        json.dump(report, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write(
+            "cost total~%s tokens main=%s subagents=%s turns=%s\n"
+            % (
+                report["total_billed_tokens_estimate"],
+                report["main_thread_share"],
+                sub_count,
+                main_turns,
+            )
+        )
+    return 0
+
+
 SUBCOMMANDS = {
     "tier": cmd_tier,
     "ui-principles": cmd_ui_principles,
@@ -392,6 +517,8 @@ SUBCOMMANDS = {
     "register-plan": cmd_register_plan,
     "issue-review-receipt": cmd_review,
     "benchmark": cmd_benchmark,
+    "verify": cmd_verify,
+    "cost": cmd_cost,
 }
 
 
@@ -409,11 +536,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if command in cursor.EVENTS:
         return _emit(cursor.run(command, _read_stdin()))
-
-    from dispatch import claude
-
-    if command in claude.EVENTS:
-        return _emit(claude.run(command, _read_stdin()))
 
     sys.stderr.write("harness: unknown command %s\n" % command)
     return 2

@@ -5,13 +5,10 @@ alwaysApply: true
 # Axon 911 Workspace
 
 The workspace rule lives in `docs/workspace-rule.md` in this repository. Read it
-before reviewing or editing anything. It is the single source for both hosts:
-Cursor loads it through this file, and the `a911-harness` Claude Code plugin
-injects the same document at `SessionStart`.
+before reviewing or editing anything. It is the single source for roots, default
+posture (mechanical on, panel off), session budget, and safety rules.
 
-Do not restate roots, source priority, verification commands, or safety rules
-here. Two copies drift, and the drift is invisible until a review cites the
-stale one.
+Do not restate those rules here. Two copies drift.
 
 ## Resolve the harness root
 
