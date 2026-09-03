@@ -92,10 +92,13 @@ def capture_batch(
     role: str,
     port: int = DEFAULT_STORYBOOK_PORT,
     storybook_process: Optional[subprocess.Popen[Any]] = None,
+    manage_storybook: bool = True,
 ) -> List[Dict[str, Any]]:
     """Capture a batch of stories and write PNG + receipt pairs."""
-    owned_process = storybook_process is None
-    process = storybook_process or start_storybook(product_root, port=port)
+    owned_process = manage_storybook and storybook_process is None
+    process = storybook_process
+    if manage_storybook and process is None:
+        process = start_storybook(product_root, port=port)
     script_path = os.path.join(harness_root(), "harness", "scripts", "storybook-capture.mjs")
     playwright_root = _find_playwright_root(product_root)
     spec = {
@@ -110,6 +113,7 @@ def capture_batch(
                 "state": item.get("state", "default"),
                 "target_selector": item.get("target_selector", DEFAULT_TARGET_SELECTOR),
                 "output_path": os.path.abspath(item["output_path"]),
+                "actions": list(item.get("actions") or []),
             }
             for item in captures
         ],
@@ -168,6 +172,6 @@ def capture_batch(
             receipts.append({"artifact_path": output_path, "receipt_path": receipt_path, "receipt": receipt})
     finally:
         os.unlink(spec_path)
-        if owned_process:
+        if owned_process and process is not None:
             stop_storybook(process)
     return receipts

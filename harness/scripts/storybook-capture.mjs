@@ -6,7 +6,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const specPath = process.argv[2];
 if (!specPath) {
   console.error("usage: storybook-capture.mjs <spec.json>");
@@ -23,19 +22,36 @@ if (!playwrightRoot) {
 const require = createRequire(path.join(playwrightRoot, "package.json"));
 const { chromium } = require("playwright");
 
-function storySlug(storyId) {
-  const [group, name] = String(storyId).split("/");
-  const groupSlug = String(group || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const nameSlug = String(name || "default")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `${groupSlug}-${nameSlug}--default`;
+async function loadStoryIndex(baseUrl) {
+  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/index.json`);
+  if (!response.ok) {
+    throw new Error(`failed to load story index: ${response.status}`);
+  }
+  const payload = await response.json();
+  return payload.entries || {};
+}
+
+function resolveStoryId(entries, storyRef, exportName = "Default") {
+  const needle = String(storyRef || "").trim();
+  if (!needle) {
+    throw new Error("missing story_id");
+  }
+  if (entries[needle]) {
+    return needle;
+  }
+  const matches = Object.values(entries).filter((entry) => {
+    if (entry.type !== "story") return false;
+    if (entry.title === needle) return true;
+    if (String(entry.title || "").endsWith(`/${needle}`)) return true;
+    if (String(entry.title || "").endsWith(needle)) return true;
+    return false;
+  });
+  const narrowed = matches.filter((entry) => String(entry.name || entry.exportName || "") === exportName);
+  const chosen = (narrowed[0] || matches[0]);
+  if (!chosen) {
+    throw new Error(`story not found in index: ${needle}`);
+  }
+  return chosen.id;
 }
 
 function globalsQuery(theme, brand) {
@@ -53,10 +69,10 @@ function parseViewport(raw) {
   };
 }
 
-async function captureOne(page, capture, baseUrl) {
+async function captureOne(page, capture, baseUrl, entries) {
   const viewport = parseViewport(capture.viewport);
   await page.setViewportSize(viewport);
-  const slug = storySlug(capture.story_id);
+  const slug = resolveStoryId(entries, capture.story_id, capture.export_name || "Default");
   const url =
     `${baseUrl.replace(/\/$/, "")}/iframe.html?id=${encodeURIComponent(slug)}` +
     `&viewMode=story${globalsQuery(capture.theme, capture.brand)}`;
@@ -70,7 +86,19 @@ async function captureOne(page, capture, baseUrl) {
   page.on("requestfailed", (req) => failedRequests.push(req.url()));
 
   await page.goto(url, { waitUntil: "networkidle", timeout: 120000 });
+  await page.waitForFunction(
+    () => document.body.classList.contains("sb-show-main"),
+    undefined,
+    { timeout: 120000 },
+  );
   await page.waitForTimeout(500);
+
+  for (const action of capture.actions || []) {
+    if (action.type === "click" && action.selector) {
+      await page.locator(action.selector).first().click({ timeout: 30000 });
+      await page.waitForTimeout(300);
+    }
+  }
 
   const selector = capture.target_selector || "#storybook-root";
   const target = page.locator(selector).first();
@@ -101,6 +129,7 @@ async function captureOne(page, capture, baseUrl) {
 
   return {
     story_id: capture.story_id,
+    resolved_story_id: slug,
     story_url: url,
     target_selector: selector,
     width: box?.width || 0,
@@ -121,10 +150,11 @@ async function captureOne(page, capture, baseUrl) {
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext();
 const page = await context.newPage();
+const entries = await loadStoryIndex(spec.baseUrl);
 const results = [];
 
 for (const capture of spec.captures || []) {
-  results.push(await captureOne(page, capture, spec.baseUrl));
+  results.push(await captureOne(page, capture, spec.baseUrl, entries));
 }
 
 await browser.close();
