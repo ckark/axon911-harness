@@ -213,7 +213,7 @@ def classify(command: str) -> Dict[str, str]:
             continue
     rest = git
     if verb == "commit":
-        if " && " in raw or "push" in raw.split("commit", 1)[-1]:
+        if " && " in raw and _compound_has_mutation_phrase(raw):
             return {"permission": "deny", "family": "compound", "reason": "commit-and-push-together"}
         return {"permission": "ask", "family": "git-commit", "reason": "supported-commit"}
     if verb == "push":
