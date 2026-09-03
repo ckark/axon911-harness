@@ -22,8 +22,9 @@ if HARNESS_DIR not in sys.path:
 from dispatch.common import resolve_cli_root, roots  # noqa: E402
 from lib.constants import STATUS_INCONCLUSIVE, STATUS_PASS  # noqa: E402
 from lib.fingerprint import snapshot  # noqa: E402
-from lib.ledger import append_record, gc_segments  # noqa: E402
+from lib.ledger import append_record, current_state, gc_segments  # noqa: E402
 from lib.receipts import (  # noqa: E402
+    active_plan,
     evaluate_gate,
     issue_review_receipt,
     issue_verification_receipt,
@@ -56,11 +57,17 @@ def cmd_attest(argv: Sequence[str]) -> int:
     if command and command[0] == "--":
         command = command[1:]
     root_path = resolve_cli_root(args.root)
-    pre = snapshot(args.root, root_path, plan_hash=args.plan_hash)
+    plan_hash = args.plan_hash
+    if not plan_hash:
+        unbound = snapshot(args.root, root_path, plan_hash="")
+        plan_hash = active_plan(
+            current_state(), args.root, unbound["worktree_id"]
+        ).get("plan_hash", "")
+    pre = snapshot(args.root, root_path, plan_hash=plan_hash)
     started = time.time()
     result = subprocess.run(command, cwd=root_path)
     duration = int((time.time() - started) * 1000)
-    post = snapshot(args.root, root_path, plan_hash=args.plan_hash)
+    post = snapshot(args.root, root_path, plan_hash=plan_hash)
     status = STATUS_PASS if result.returncode == 0 else STATUS_INCONCLUSIVE
     record = issue_verification_receipt(
         args.root,
@@ -69,7 +76,7 @@ def cmd_attest(argv: Sequence[str]) -> int:
         args.obligation_id,
         status,
         pre["fingerprint"],
-        args.plan_hash,
+        plan_hash,
         exit_status=result.returncode,
         duration_ms=duration,
     )
@@ -388,7 +395,7 @@ def cmd_verify(argv: Sequence[str]) -> int:
     from dispatch.common import resolve_cli_root, roots as configured
     from lib.fingerprint import changed_paths, snapshot
     from lib.obligations import triggered_obligations
-    from lib.receipts import active_plan, evaluate_gate, mutation_required_ids
+    from lib.receipts import evaluate_gate, mutation_required_ids
 
     parser = argparse.ArgumentParser(prog="verify")
     parser.add_argument("--root", default="axon911-frontend")
@@ -406,13 +413,11 @@ def cmd_verify(argv: Sequence[str]) -> int:
         changed = changed_paths(root_path)
     except Exception:
         changed = []
-    state_plan = active_plan(
-        __import__("lib.ledger", fromlist=["current_state"]).current_state(),
-        args.root,
-        current["worktree_id"],
-    )
+    state_plan = active_plan(current_state(), args.root, current["worktree_id"])
     tier = state_plan.get("tier") or "T0"
     plan_hash = state_plan.get("plan_hash") or ""
+    if plan_hash:
+        current = snapshot(args.root, root_path, plan_hash=plan_hash)
     required = mutation_required_ids(args.root, changed, args.family, tier)
     gate = evaluate_gate(
         args.root,
