@@ -30,8 +30,30 @@ class TierRoutingTests(unittest.TestCase):
         else:
             os.environ["HARNESS_REVIEW_MODE"] = self.previous
 
-    def test_one_critic_satisfies_any_tier(self) -> None:
-        record = issue_review_receipt(
+    def test_matching_tier_satisfies_gate(self) -> None:
+        issue_review_receipt(
+            "personal-harness",
+            "wt",
+            "fp",
+            "T2",
+            ["design-system-critic"],
+            STATUS_PASS,
+            "plan",
+            base=self.base,
+        )
+        gate = evaluate_gate(
+            "personal-harness",
+            "wt",
+            "fp",
+            ["review.T2"],
+            "plan",
+            "T2",
+            base=self.base,
+        )
+        self.assertEqual(gate["permission"], "allow")
+
+    def test_lower_tier_receipt_does_not_satisfy_higher_tier(self) -> None:
+        issue_review_receipt(
             "personal-harness",
             "wt",
             "fp",
@@ -41,18 +63,18 @@ class TierRoutingTests(unittest.TestCase):
             "plan",
             base=self.base,
         )
-        self.assertEqual(record["status"], STATUS_PASS)
-        for tier in ("T0", "T1", "T2"):
-            gate = evaluate_gate(
-                "personal-harness",
-                "wt",
-                "fp",
-                ["review.%s" % tier],
-                "plan",
-                tier,
-                base=self.base,
-            )
-            self.assertEqual(gate["permission"], "allow", tier)
+        gate = evaluate_gate(
+            "personal-harness",
+            "wt",
+            "fp",
+            ["review.T2"],
+            "plan",
+            "T2",
+            base=self.base,
+        )
+        self.assertEqual(gate["permission"], "deny")
+        recovery = gate.get("recovery") or {}
+        self.assertIn("review.T2", recovery.get("missing") or [])
 
     def test_empty_critic_list_is_blocked(self) -> None:
         record = issue_review_receipt(

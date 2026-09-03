@@ -30,6 +30,12 @@ from lib.receipts import (  # noqa: E402
     issue_verification_receipt,
     register_plan,
 )
+from lib.command_specs import validate_attestation_command  # noqa: E402
+from lib.plan_profile import (  # noqa: E402
+    parse_path_surface_args,
+    register_plan_profile,
+    validate_mirror_intent,
+)
 
 
 def _read_stdin() -> bytes:
@@ -59,15 +65,23 @@ def cmd_attest(argv: Sequence[str]) -> int:
     root_path = resolve_cli_root(args.root)
     plan_hash = args.plan_hash
     if not plan_hash:
-        unbound = snapshot(args.root, root_path, plan_hash="")
+        unbound = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
         plan_hash = active_plan(
             current_state(), args.root, unbound["worktree_id"]
         ).get("plan_hash", "")
-    pre = snapshot(args.root, root_path, plan_hash=plan_hash)
+    from lib.plan_profile import profile_from_state
+
+    profile = profile_from_state(args.root, snapshot(args.root, root_path, plan_hash=plan_hash)["worktree_id"])
+    plan_context_hash = profile.get("plan_context_hash") or ""
+    ok, reason = validate_attestation_command(args.obligation_id, command)
+    if not ok:
+        sys.stderr.write("attest: invalid command for %s: %s\n" % (args.obligation_id, reason))
+        return 2
+    pre = snapshot(args.root, root_path, plan_hash=plan_hash, plan_context_hash=plan_context_hash)
     started = time.time()
     result = subprocess.run(command, cwd=root_path)
     duration = int((time.time() - started) * 1000)
-    post = snapshot(args.root, root_path, plan_hash=plan_hash)
+    post = snapshot(args.root, root_path, plan_hash=plan_hash, plan_context_hash=plan_context_hash)
     status = STATUS_PASS if result.returncode == 0 else STATUS_INCONCLUSIVE
     record = issue_verification_receipt(
         args.root,
@@ -79,6 +93,7 @@ def cmd_attest(argv: Sequence[str]) -> int:
         plan_hash,
         exit_status=result.returncode,
         duration_ms=duration,
+        plan_context_hash=plan_context_hash,
     )
     return 0 if record.get("status") == STATUS_PASS else 1
 
@@ -91,25 +106,57 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
     parser.add_argument("--plan-hash", required=True)
     parser.add_argument("--tier", default="T0")
     parser.add_argument("--scope", action="append", default=[])
+    parser.add_argument("--base-oid", default="")
+    parser.add_argument("--mirror-intent", default="")
+    parser.add_argument("--path-surface", action="append", default=[])
     args = parser.parse_args(argv)
-    current = snapshot(args.root, resolve_cli_root(args.root), plan_hash=args.plan_hash)
-    register_plan(
-        args.root,
-        current["worktree_id"],
-        current["fingerprint"],
-        args.plan_hash,
-        tier=args.tier,
-    )
-    if args.scope:
-        from lib.conformance import normalize_scope, register_scope
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash=args.plan_hash, plan_context_hash="")
+    path_surfaces, surface_errors = parse_path_surface_args(args.path_surface)
+    if surface_errors:
+        for item in surface_errors:
+            sys.stderr.write("register-plan: %s\n" % item)
+        return 2
+    mirror_intent = ""
+    if args.mirror_intent:
+        mirror = validate_mirror_intent(args.mirror_intent)
+        if not mirror:
+            sys.stderr.write("register-plan: invalid mirror-intent\n")
+            return 2
+        mirror_intent = mirror
+    from lib.conformance import normalize_scope
 
-        register_scope(
+    scope = normalize_scope(args.scope)
+    if scope or args.base_oid or mirror_intent or path_surfaces:
+        register_plan_profile(
             args.root,
             current["worktree_id"],
             current["fingerprint"],
             args.plan_hash,
-            normalize_scope(args.scope),
+            args.tier,
+            scope,
+            args.base_oid,
+            mirror_intent,
+            path_surfaces,
         )
+    else:
+        register_plan(
+            args.root,
+            current["worktree_id"],
+            current["fingerprint"],
+            args.plan_hash,
+            tier=args.tier,
+        )
+        if args.scope:
+            from lib.conformance import register_scope
+
+            register_scope(
+                args.root,
+                current["worktree_id"],
+                current["fingerprint"],
+                args.plan_hash,
+                scope,
+            )
     return 0
 
 
@@ -123,7 +170,16 @@ def cmd_review(argv: Sequence[str]) -> int:
     parser.add_argument("--plan-hash", default="")
     parser.add_argument("--status", default=STATUS_PASS)
     args = parser.parse_args(argv)
-    current = snapshot(args.root, resolve_cli_root(args.root), plan_hash=args.plan_hash)
+    current = snapshot(args.root, resolve_cli_root(args.root), plan_hash=args.plan_hash, plan_context_hash="")
+    from lib.plan_profile import profile_from_state
+
+    profile = profile_from_state(args.root, current["worktree_id"])
+    current = snapshot(
+        args.root,
+        resolve_cli_root(args.root),
+        plan_hash=args.plan_hash or profile.get("plan_hash") or "",
+        plan_context_hash=profile.get("plan_context_hash") or "",
+    )
     issue_review_receipt(
         args.root,
         current["worktree_id"],
@@ -132,6 +188,7 @@ def cmd_review(argv: Sequence[str]) -> int:
         args.critic,
         args.status,
         args.plan_hash,
+        plan_context_hash=profile.get("plan_context_hash") or "",
     )
     return 0
 
@@ -401,6 +458,7 @@ def cmd_verify(argv: Sequence[str]) -> int:
     parser.add_argument("--root", default="axon911-frontend")
     parser.add_argument("--family", default="git-commit")
     parser.add_argument("--json", action="store_true", dest="as_json")
+    parser.add_argument("--explain", action="store_true")
     args = parser.parse_args(argv)
 
     all_roots = configured()
@@ -408,7 +466,7 @@ def cmd_verify(argv: Sequence[str]) -> int:
         sys.stderr.write("verify: unknown root %s\n" % args.root)
         return 2
     root_path = resolve_cli_root(args.root)
-    current = snapshot(args.root, root_path, plan_hash="")
+    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
     try:
         changed = changed_paths(root_path)
     except Exception:
@@ -416,9 +474,33 @@ def cmd_verify(argv: Sequence[str]) -> int:
     state_plan = active_plan(current_state(), args.root, current["worktree_id"])
     tier = state_plan.get("tier") or "T0"
     plan_hash = state_plan.get("plan_hash") or ""
-    if plan_hash:
-        current = snapshot(args.root, root_path, plan_hash=plan_hash)
-    required = mutation_required_ids(args.root, changed, args.family, tier)
+    from lib.plan_profile import active_profile
+    from lib.path_selector import select_obligations
+    from lib.conformance import evaluate_against_base
+
+    profile = active_profile(current_state(), args.root, current["worktree_id"])
+    if plan_hash or profile.get("plan_context_hash"):
+        current = snapshot(
+            args.root,
+            root_path,
+            plan_hash=plan_hash,
+            plan_context_hash=profile.get("plan_context_hash") or "",
+        )
+    selection = select_obligations(
+        args.root,
+        changed,
+        profile,
+        tier,
+        family=args.family,
+    )
+    conformance = evaluate_against_base(
+        args.root,
+        current["worktree_id"],
+        changed,
+        profile,
+        root_path=root_path,
+    )
+    required = selection["required_obligation_ids"]
     gate = evaluate_gate(
         args.root,
         current["worktree_id"],
@@ -427,6 +509,10 @@ def cmd_verify(argv: Sequence[str]) -> int:
         plan_hash,
         tier,
         changed_paths=changed,
+        root_path=root_path,
+        selection=selection,
+        conformance=conformance,
+        explain=args.explain,
     )
     report = {
         "root": args.root,
@@ -434,11 +520,12 @@ def cmd_verify(argv: Sequence[str]) -> int:
         "plan_hash": plan_hash,
         "tier": tier,
         "changed_paths": changed,
-        "triggered_obligations": [
-            obligation["id"] for obligation in triggered_obligations(args.root, changed)
-        ],
+        "triggered_obligations": selection["triggered_obligation_ids"],
         "required_obligation_ids": required,
+        "classification_errors": selection["classification_errors"],
+        "conformance": conformance,
         "gate": gate,
+        "recovery": gate.get("recovery"),
     }
     if args.as_json:
         json.dump(report, sys.stdout, indent=2)
@@ -449,6 +536,247 @@ def cmd_verify(argv: Sequence[str]) -> int:
             % (gate.get("status"), args.root, ",".join(required))
         )
     return 0 if gate.get("permission") == "allow" else 1
+
+
+def cmd_preview_obligations(argv: Sequence[str]) -> int:
+    import argparse
+
+    from lib.fingerprint import changed_paths
+    from lib.path_selector import preview_obligations
+
+    parser = argparse.ArgumentParser(prog="preview-obligations")
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--path", action="append", default=[])
+    parser.add_argument("--family", default="git-commit")
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args(argv)
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+    paths = []
+    for raw in args.path:
+        cleaned = raw.replace("\\", "/").lstrip("./")
+        if cleaned.startswith("/") or ".." in cleaned.split("/"):
+            sys.stderr.write("preview-obligations: path must be root-relative\n")
+            return 2
+        paths.append(cleaned)
+    if not paths:
+        paths = changed_paths(root_path)
+    report = preview_obligations(
+        args.root,
+        paths,
+        current["worktree_id"],
+        family=args.family,
+        root_path=root_path,
+    )
+    if args.as_json:
+        json.dump(report, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write(
+            "preview blocked=%s required=%s\n"
+            % (report.get("blocked"), ",".join(report["selection"]["required_obligation_ids"]))
+        )
+    return 1 if report.get("blocked") else 0
+
+
+def cmd_record_evidence(argv: Sequence[str]) -> int:
+    import argparse
+
+    from lib.evidence import record_evidence
+    from lib.plan_profile import profile_from_state
+
+    parser = argparse.ArgumentParser(prog="record-evidence")
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--obligation-id", required=True)
+    parser.add_argument("--kind", required=True, choices=("before", "after"))
+    parser.add_argument("--artifact", required=True)
+    args = parser.parse_args(argv)
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+    profile = profile_from_state(args.root, current["worktree_id"])
+    try:
+        record_evidence(
+            args.root,
+            root_path,
+            current["worktree_id"],
+            current["fingerprint"],
+            profile.get("plan_hash") or "",
+            profile.get("plan_context_hash") or "",
+            args.obligation_id,
+            args.kind,
+            args.artifact,
+            base_oid=str(profile.get("base_oid") or ""),
+        )
+    except ValueError as exc:
+        sys.stderr.write("record-evidence: %s\n" % exc)
+        return 2
+    return 0
+
+
+def cmd_ship_plan(argv: Sequence[str]) -> int:
+    import argparse
+
+    from lib.shipping import evaluate_ship_plan
+
+    parser = argparse.ArgumentParser(prog="ship-plan")
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--family", default="git-push")
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args(argv)
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+    from lib.plan_profile import profile_from_state
+
+    profile = profile_from_state(args.root, current["worktree_id"])
+    current = snapshot(
+        args.root,
+        root_path,
+        plan_hash=profile.get("plan_hash") or "",
+        plan_context_hash=profile.get("plan_context_hash") or "",
+    )
+    report = evaluate_ship_plan(
+        args.root,
+        root_path,
+        current["worktree_id"],
+        current["fingerprint"],
+        family=args.family,
+    )
+    if args.as_json:
+        json.dump(report, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write(
+            "ship-plan ready=%s root=%s required=%s\n"
+            % (
+                report.get("ready"),
+                args.root,
+                ",".join(report.get("required_obligation_ids") or []),
+            )
+        )
+    return 0 if report.get("ready") else 1
+
+
+def cmd_session_status(argv: Sequence[str]) -> int:
+    import argparse
+
+    from lib.sessions import session_status
+
+    parser = argparse.ArgumentParser(prog="session-status")
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--session-id", default="default")
+    parser.add_argument("--family", default="git-commit")
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args(argv)
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+    report = session_status(
+        args.root,
+        root_path,
+        current["worktree_id"],
+        current["fingerprint"],
+        args.session_id,
+        family=args.family,
+    )
+    if args.as_json:
+        json.dump(report, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write("session-status phase=%s\n" % report.get("phase"))
+    return 0
+
+
+def cmd_handoff(argv: Sequence[str]) -> int:
+    import argparse
+
+    from lib.sessions import create_handoff
+
+    parser = argparse.ArgumentParser(prog="handoff")
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--session-id", default="default")
+    parser.add_argument("--phase", default="implementation")
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args(argv)
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+    payload = create_handoff(
+        args.root,
+        root_path,
+        current["worktree_id"],
+        current["fingerprint"],
+        args.session_id,
+        args.phase,
+    )
+    if args.as_json:
+        json.dump(payload, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write("handoff phase=%s next=%s\n" % (payload.get("phase"), payload.get("next_command")))
+    return 0
+
+
+def cmd_bundle(argv: Sequence[str]) -> int:
+    import argparse
+
+    from dispatch.common import roots as configured
+    from lib.bundles import (
+        STAGE_CANDIDATE,
+        build_root_entry,
+        bundle_manifest,
+        load_bundle,
+        verify_bundle_manifest,
+        write_bundle,
+    )
+
+    parser = argparse.ArgumentParser(prog="bundle")
+    sub = parser.add_subparsers(dest="action", required=True)
+    create = sub.add_parser("create")
+    create.add_argument("--plan-hash", required=True)
+    create.add_argument("--tier", default="T0")
+    create.add_argument("--stage", default=STAGE_CANDIDATE)
+    create.add_argument("--root", action="append", default=[])
+    create.add_argument("--json", action="store_true", dest="as_json")
+    verify = sub.add_parser("verify")
+    verify.add_argument("path")
+    verify.add_argument("--json", action="store_true", dest="as_json")
+    args = parser.parse_args(argv)
+    if args.action == "verify":
+        manifest = load_bundle(args.path)
+        report = verify_bundle_manifest(manifest)
+        if args.as_json:
+            json.dump(report, sys.stdout, indent=2)
+            sys.stdout.write("\n")
+        else:
+            sys.stdout.write("bundle verify status=%s\n" % report.get("status"))
+        return 0 if report.get("status") == STATUS_PASS else 1
+    all_roots = configured()
+    selected = args.root or [item for item in all_roots if item != "personal-harness"]
+    entries = {}
+    for root_id in selected:
+        root_path = resolve_cli_root(root_id)
+        from lib.plan_profile import profile_from_state
+
+        profile = profile_from_state(root_id, snapshot(root_id, root_path, plan_hash=args.plan_hash)["worktree_id"])
+        current = snapshot(
+            root_id,
+            root_path,
+            plan_hash=args.plan_hash,
+            plan_context_hash=profile.get("plan_context_hash") or "",
+        )
+        entries[root_id] = build_root_entry(
+            root_id,
+            root_path,
+            current["worktree_id"],
+            current["fingerprint"],
+        )
+    manifest = bundle_manifest(args.plan_hash, args.tier, args.stage, entries)
+    path = write_bundle(manifest)
+    report = {"path": path, "digest": verify_bundle_manifest(manifest)["digest"], "manifest": manifest}
+    if args.as_json:
+        json.dump(report, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        sys.stdout.write("bundle created %s\n" % path)
+    return 0
 
 
 def cmd_cost(argv: Sequence[str]) -> int:
@@ -525,6 +853,12 @@ SUBCOMMANDS = {
     "issue-review-receipt": cmd_review,
     "benchmark": cmd_benchmark,
     "verify": cmd_verify,
+    "preview-obligations": cmd_preview_obligations,
+    "record-evidence": cmd_record_evidence,
+    "ship-plan": cmd_ship_plan,
+    "session-status": cmd_session_status,
+    "handoff": cmd_handoff,
+    "bundle": cmd_bundle,
     "cost": cmd_cost,
 }
 

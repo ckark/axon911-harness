@@ -18,23 +18,44 @@ Local receipts are cooperative assurance, not tamper-proof enforcement.
 2. Register the plan when one exists:
 
    ```bash
-   python3 harness/cli.py register-plan --root <root> --plan-hash <sha256> --tier <tier>
+   python3 harness/cli.py register-plan --root <root> --plan-hash <sha256> --tier <tier> \
+     --scope '<glob>' --base-oid <ref> \
+     --mirror-intent consumer-only|authoring \
+     --path-surface 'path/**=non-visible|new-visible|existing-visible'
    ```
 
-3. Run root-owned checks through the attesting wrapper:
+3. Preview obligations before editing (read-only):
+
+   ```bash
+   python3 harness/cli.py preview-obligations --root <root> --path '<relpath>' --json
+   ```
+
+4. Run root-owned checks through the attesting wrapper:
 
    ```bash
    python3 harness/cli.py attest --root <root> --obligation-id <id> --plan-hash <sha256> -- <argv>
    ```
 
-4. Capture rendered evidence via `/capture-evidence` when user-visible surfaces changed.
+4. Capture rendered evidence via `/capture-evidence` when user-visible surfaces changed, then register artifacts:
+
+   ```bash
+   python3 harness/cli.py record-evidence --root <root> --obligation-id <id> \
+     --kind before|after --artifact <root-relative-path>
+   ```
+
 5. Mechanical verification:
 
    ```bash
-   python3 harness/cli.py verify --root <root> --json
+   python3 harness/cli.py verify --root <root> --json --explain
    ```
 
-6. **Review receipt (optional by default):** only when `/adversarial-review` ran
+6. Push readiness (read-only; no checks run):
+
+   ```bash
+   python3 harness/cli.py ship-plan --root <root> --json
+   ```
+
+7. **Review receipt (optional by default):** only when `/adversarial-review` ran
    or `HARNESS_REVIEW_MODE` is raised. Validate the report file at
    `.harness/runtime/reports/design-system-critic-<fingerprint>.md`, not prose
    in context. Then:
@@ -45,8 +66,12 @@ Local receipts are cooperative assurance, not tamper-proof enforcement.
      --critic design-system-critic
    ```
 
-7. For push: attest `push.oid`. For `gt submit`: attest `stack-oid-set`.
+8. For push: attest `push.oid`. For `gt submit`: attest `stack-oid-set`. If the
+   repository pre-push hook fails on private packages, set `NODE_AUTH_TOKEN` for
+   GitHub npm (see prepared911 `turbo/.npmrc`); `ship-plan` reports this when unset.
 
 ## Recovery
 
-If a gate denies, rerun this skill against the current fingerprint.
+If a gate denies, rerun this skill against the current fingerprint. Use
+`verify --explain` or `ship-plan --json` for structured recovery categories
+(missing, stale, wrong-plan, conformance, classification, evidence).

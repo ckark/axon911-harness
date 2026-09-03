@@ -197,6 +197,8 @@ def _load_index(base: str) -> Dict[str, Any]:
             "invalidated": {},
             "sessions": {},
             "plans": {},
+            "scopes": {},
+            "profiles": {},
             "updated": 0,
         }
     with open(path, "r", encoding="utf-8") as handle:
@@ -236,6 +238,28 @@ def _apply_record_to_index(index: Dict[str, Any], record: Mapping[str, Any]) -> 
             "tier": record.get("tier") or "T0",
             "ts": record.get("ts"),
         }
+    if kind == "plan_profile":
+        plan_key = "%s:%s" % (record.get("root"), record.get("worktree_id"))
+        index.setdefault("profiles", {})[plan_key] = {
+            "plan_hash": record.get("plan_hash") or "",
+            "tier": record.get("tier") or "T0",
+            "scope": list(record.get("scope") or []),
+            "base_oid": record.get("base_oid") or "",
+            "mirror_intent": record.get("mirror_intent") or "",
+            "path_surfaces": dict(record.get("path_surfaces") or {}),
+            "plan_context_hash": record.get("plan_context_hash") or "",
+            "ts": record.get("ts"),
+        }
+        index.setdefault("plans", {})[plan_key] = {
+            "plan_hash": record.get("plan_hash") or "",
+            "tier": record.get("tier") or "T0",
+            "ts": record.get("ts"),
+        }
+        index.setdefault("scopes", {})[plan_key] = {
+            "scope": list(record.get("scope") or []),
+            "plan_hash": record.get("plan_hash") or "",
+            "ts": record.get("ts"),
+        }
     if kind == "plan_scope":
         scope_key = "%s:%s" % (record.get("root"), record.get("worktree_id"))
         index.setdefault("scopes", {})[scope_key] = {
@@ -243,6 +267,28 @@ def _apply_record_to_index(index: Dict[str, Any], record: Mapping[str, Any]) -> 
             "plan_hash": record.get("plan_hash") or "",
             "ts": record.get("ts"),
         }
+    if kind == "evidence_record":
+        evidence_key = "%s:%s:%s" % (
+            record.get("root"),
+            record.get("obligation_id"),
+            record.get("evidence_kind"),
+        )
+        index.setdefault("evidence", {})[evidence_key] = dict(record)
+    if kind == "session_handoff":
+        session_key = "%s:%s" % (record.get("worktree_id"), record.get("session_id"))
+        index.setdefault("handoffs", {})[session_key] = dict(record.get("handoff") or record)
+    if kind == "session_phase":
+        session_key = "%s:%s" % (record.get("worktree_id"), record.get("session_id"))
+        sessions = index.setdefault("sessions", {})
+        current = dict(sessions.get(session_key) or {})
+        current.update(
+            {
+                "phase": record.get("phase") or current.get("phase"),
+                "stop_loops": current.get("stop_loops") or 0,
+                "ts": record.get("ts"),
+            }
+        )
+        sessions[session_key] = current
     if kind == "critic_return":
         # Deduped by critic identity: two returns from the same critic are one
         # critic, which is what tier cardinality actually means.
@@ -294,10 +340,17 @@ def gc_segments(base: Optional[str] = None, now: Optional[float] = None) -> None
             for entry in entries:
                 if entry.get("evidence_pointer"):
                     active.add(entry["evidence_pointer"])
+        for evidence in (index.get("evidence") or {}).values():
+            pointer = evidence.get("evidence_pointer")
+            if pointer:
+                active.add(pointer)
         for path in _segment_paths(runtime):
             age = stamp - os.path.getmtime(path)
             if age > RETENTION_S and os.path.basename(path) not in active:
                 os.remove(path)
+        from .sessions import compact_runtime_state
+
+        _write_index(runtime, compact_runtime_state(index))
     finally:
         release_lock(lock)
 

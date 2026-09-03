@@ -59,6 +59,24 @@ class ObligationAdapterTests(unittest.TestCase):
         ids = required_ids("prepared911", ["turbo/packages/ui-core/src/button.tsx"], False, False)
         self.assertNotIn("prepared911.rendered-evidence", ids)
 
+    def test_consumer_only_via_selector_suppresses_docs(self) -> None:
+        from lib.path_selector import select_obligations
+
+        profile = {
+            "profiled": True,
+            "scope": ["turbo/apps/dispatch/**"],
+            "mirror_intent": "consumer-only",
+            "path_surfaces": {},
+        }
+        selection = select_obligations(
+            "prepared911",
+            ["turbo/packages/ui-core/src/button.tsx"],
+            profile,
+            "T0",
+        )
+        self.assertNotIn("prepared911.docs-registry", selection["required_obligation_ids"])
+        self.assertNotIn("prepared911.docs-page", selection["required_obligation_ids"])
+
     def test_cross_root_receipt_rejected(self) -> None:
         self.assertFalse(cross_root_receipt_valid("prepared911", "axon911-frontend"))
         self.assertTrue(cross_root_receipt_valid("prepared911", "prepared911"))

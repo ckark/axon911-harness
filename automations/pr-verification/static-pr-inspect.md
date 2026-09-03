@@ -26,6 +26,19 @@ customer data, and raw logs before writing output.
 4. Never treat a missing live screenshot as `PASS`. Missing evidence is
    `BLOCKED` or `INCONCLUSIVE`.
 5. Do not request extra tools, MCP, Slack, deployments, or reviewer writes.
+6. For cross-root publication, prefer read-only `ship-plan` and `bundle verify`
+   harness CLI output over executing product CI in this automation.
+
+## Harness read-only signals (when available)
+
+When inspecting a same-repo PR with harness CLI access, these commands do not
+execute PR code or mutate git state:
+
+- `ship-plan --root <root> --json`
+- `bundle verify <manifest-path> --json`
+
+Use structured recovery output as advisory context only; this automation
+remains dormant until isolation is proven.
 
 ## Output
 

@@ -39,9 +39,14 @@ browser-mode a11y and interaction tests.
 3. Open the story or route in the browser and capture the **after** state. When
    changing something that already exists, capture **before and after** — the
    contract requires both.
-4. Write artifacts under `.harness/runtime/evidence/<fingerprint>/`, named by
-   obligation id. Get the current fingerprint from the harness rather than
-   guessing it.
+4. Write artifacts under `.harness/runtime/evidence/` and register them:
+
+   ```bash
+   python3 harness/cli.py record-evidence --root <root> \
+     --obligation-id <root>.rendered-evidence --kind before|after \
+     --artifact <root-relative-png>
+   ```
+
 5. Re-run `/implementation-check` so the obligation resolves against the artifact.
 
 ## Rules

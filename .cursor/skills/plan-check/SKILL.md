@@ -35,6 +35,14 @@ Do not copy recipes from those references into this skill. Cite and follow them.
 - `target`: Plan file or pasted plan text
 - `scope`: Optional constraints
 
+3. For Prepared consumer-only work touching deprecating mirror paths, the plan
+   must declare `--mirror-intent consumer-only` and per-path surface classes.
+   Preview obligations before implementing:
+
+   ```bash
+   python3 harness/cli.py preview-obligations --root prepared911 --json
+   ```
+
 ## Phase 1: Contract completeness
 
 Check that the plan contains every required section from `docs/plan-contract.md`:

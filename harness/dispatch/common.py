@@ -9,6 +9,7 @@ from lib.constants import STATUS_PASS
 from lib.fingerprint import changed_paths, snapshot
 from lib.ledger import current_state
 from lib.paths import PathError, configured_roots, identify_root
+from lib.plan_profile import active_profile
 from lib.receipts import active_plan, evaluate_gate, mutation_required_ids
 from lib.schema import SchemaError, sanitized_message
 from lib.shell_gate import classify, mutation_cwd
@@ -25,17 +26,7 @@ def roots() -> Dict[str, str]:
 
 
 def resolve_root(path: str) -> Tuple[str, str]:
-    """(root_id, root_path) for `path`, honoring linked worktrees.
-
-    `root_path` is the *actual* directory `path` lives in, not necessarily the
-    configured default -- a user routinely has several concurrent worktrees of
-    the same repository open (one per branch or task), and `identify_root`
-    recognizes any of them via their shared git history, not just the one that
-    happens to sit at the hardcoded default path. Every caller that goes on to
-    fingerprint, diff, or run a command against this root must use this path,
-    not re-derive it from `roots()[root_id]`, or it silently operates on the
-    wrong worktree.
-    """
+    """(root_id, root_path) for `path`, honoring linked worktrees."""
     return identify_root(path, roots())
 
 
@@ -45,16 +36,7 @@ def root_for(path: str) -> str:
 
 
 def resolve_cli_root(root_id: str) -> str:
-    """The best root_path for `root_id` given the process's actual cwd.
-
-    CLI subcommands take `--root <id>` rather than a live event payload, so
-    they have no cwd hint unless they ask for one. Prefer the invocation's own
-    cwd when it resolves to the same root_id -- honoring whichever worktree
-    the command is actually being run from, e.g. when the attest-rewrite hook
-    invokes this CLI with the agent's real working directory -- and fall back
-    to the configured default otherwise (invoked from an unrelated directory,
-    or with no better cwd available).
-    """
+    """The best root_path for `root_id` given the process's actual cwd."""
     try:
         candidate_id, candidate_path = resolve_root(os.getcwd())
     except PathError:
@@ -65,42 +47,54 @@ def resolve_cli_root(root_id: str) -> str:
 
 
 def snap(root_id: str, root_path: Optional[str] = None) -> Dict[str, str]:
-    """Fingerprint `root_id` at `root_path`, binding the active plan hash when
-    one is registered. `root_path` defaults to the configured path for
-    callers that have no more specific worktree in hand."""
+    """Fingerprint `root_id` at `root_path`, binding active plan context."""
     path = root_path or roots()[root_id]
-    first = snapshot(root_id, path, plan_hash="")
+    first = snapshot(root_id, path, plan_hash="", plan_context_hash="")
     try:
-        registered = active_plan(current_state(), root_id, first["worktree_id"])
+        state = current_state()
+        registered = active_plan(state, root_id, first["worktree_id"])
+        profile = active_profile(state, root_id, first["worktree_id"])
         plan_hash = registered.get("plan_hash") or ""
+        plan_context_hash = profile.get("plan_context_hash") or ""
     except Exception:
         plan_hash = ""
-    if not plan_hash:
+        plan_context_hash = ""
+    if not plan_hash and not plan_context_hash:
         return first
-    return snapshot(root_id, path, plan_hash=plan_hash)
+    return snapshot(
+        root_id,
+        path,
+        plan_hash=plan_hash,
+        plan_context_hash=plan_context_hash,
+    )
 
 
 def required_for(
     root_id: str, family: str, plan_hash: str, worktree_id: str, root_path: Optional[str] = None
-) -> Tuple[Any, Dict[str, str]]:
+) -> Tuple[Any, Dict[str, str], list]:
     """Obligation IDs a mutation of `family` must satisfy, plus the active plan."""
     path = root_path or roots().get(root_id) or os.getcwd()
     try:
-        paths = changed_paths(path)
+        state = current_state()
+        profile = active_profile(state, root_id, worktree_id)
+        registered = active_plan(state, root_id, worktree_id)
+    except Exception:
+        profile = {}
+        registered = {"plan_hash": plan_hash, "tier": "T0", "plan_context_hash": ""}
+    tier = registered.get("tier") or "T0"
+    from lib.conformance import branch_changed_paths
+
+    base_oid = str(profile.get("base_oid") or "")
+    try:
+        if base_oid:
+            paths = branch_changed_paths(path, base_oid)
+        else:
+            paths = changed_paths(path)
     except Exception:
         paths = []
-    try:
-        registered = active_plan(current_state(), root_id, worktree_id)
-    except Exception:
-        registered = {"plan_hash": plan_hash, "tier": "T0"}
-    tier = registered.get("tier") or "T0"
-    return mutation_required_ids(root_id, paths, family, tier), registered, paths
+    return mutation_required_ids(root_id, paths, family, tier, profile=profile), registered, paths
 
 
-# Ownership moved to axon911-frontend post CORE-754 (AGENTS.md:121,
-# docs/VENDORING.md). prepared911's copies are consumed, not authored, and are
-# slated for removal. Advisory only: an in-flight branch may legitimately still
-# be touching them.
 PREPARED911_UI_PREFIX = "turbo/packages/ui-"
 
 
@@ -129,11 +123,7 @@ def wrong_root_note(root_id: str, file_path: str, root_path: Optional[str] = Non
 
 
 def shell_decision(command: str, cwd: str) -> Dict[str, Any]:
-    """Host-neutral mutation preflight verdict for an agent-shell command.
-
-    Returns `permission` plus the fields each host needs to render its own
-    denial envelope. Never executes the command.
-    """
+    """Host-neutral mutation preflight verdict for an agent-shell command."""
     classified = classify(command)
     if classified["permission"] == "allow":
         return {"permission": "allow", "root": "", "reason": classified["reason"]}
@@ -173,6 +163,29 @@ def shell_decision(command: str, cwd: str) -> Dict[str, Any]:
         current["worktree_id"],
         root_path,
     )
+    from lib.path_selector import select_obligations
+    from lib.conformance import evaluate_against_base
+    from lib.plan_profile import active_profile
+
+    try:
+        state = current_state()
+        profile = active_profile(state, root_id, current["worktree_id"])
+    except Exception:
+        profile = {}
+    selection = select_obligations(
+        root_id,
+        changed,
+        profile,
+        registered.get("tier") or "T0",
+        family=classified.get("family") or "",
+    )
+    conformance = evaluate_against_base(
+        root_id,
+        current["worktree_id"],
+        changed,
+        profile,
+        root_path=root_path,
+    )
     gate = evaluate_gate(
         root_id,
         current["worktree_id"],
@@ -181,6 +194,9 @@ def shell_decision(command: str, cwd: str) -> Dict[str, Any]:
         plan_hash=registered.get("plan_hash") or current.get("plan_hash") or "",
         tier=registered.get("tier") or "T0",
         changed_paths=changed,
+        root_path=root_path,
+        selection=selection,
+        conformance=conformance,
     )
     return {
         "permission": gate["permission"],
@@ -188,4 +204,5 @@ def shell_decision(command: str, cwd: str) -> Dict[str, Any]:
         "reason": classified.get("reason") or "",
         "message": gate.get("agent_message") or "",
         "status": gate.get("status") or STATUS_PASS,
+        "recovery": gate.get("recovery"),
     }

@@ -46,7 +46,7 @@ still exits 0. Use these instead:
 python3 .cursor/hooks/runtime_gate.py benchmark --json
 
 # 2. The shared package is intact.
-python3 -m unittest discover -s harness/tests -p 'test_*.py'   # 216 tests
+python3 -m unittest discover -s harness/tests -p 'test_*.py'   # 170+ tests
 
 # 3. Scoring works against a real checkout.
 cd /path/to/axon911-frontend && \
@@ -90,7 +90,13 @@ python3 harness/cli.py <command>
 | `ui-principles` | Diff-scoped lint/SCSS checks on `packages/ui-*` |
 | `conformance` | Compare a registered plan's declared scope against actual changes |
 | `attest` | Run a verification command and bind its result to a fingerprint |
-| `register-plan` | Persist a plan hash, tier, and declared scope |
+| `register-plan` | Persist plan hash, tier, scope, base, mirror intent, path surfaces |
+| `preview-obligations` | Read-only obligation and conformance preview |
+| `record-evidence` | Hash-bind before/after rendered evidence artifacts |
+| `ship-plan` | Read-only push readiness with structured recovery |
+| `session-status` / `handoff` | Privacy-safe session lifecycle |
+| `bundle` | Cross-root publication manifest create/verify |
+| `verify --explain` | Mechanical coverage with recovery categories |
 | `issue-review-receipt` | Record a review at a tier |
 | `benchmark` | Ledger/gate performance check |
 
@@ -107,9 +113,9 @@ Two flags matter in day-to-day use:
 ## Rules the gate enforces that will surprise you
 
 - **One mutation per command.** A `git commit`/`git push`/`gt submit` chained
-  with `&&`, wrapped in a `for` loop, or piped is denied as
-  `compound-or-ambiguous-mutation`. This is deliberate: a loop with N targets
-  cannot be classified statically. Write one command per mutation.
+  with a mutating command, wrapped in a `for` loop, or piped is denied as
+  `compound-or-ambiguous-mutation`. Read-only Git chains such as
+  `git log && git status` are allowed.
 - **Commits and pushes are separate commands.** Never chain them.
 - **Receipts are fingerprint-bound.** Staging files changes the fingerprint, so
   issue the review receipt *after* `git add`, immediately before committing. If

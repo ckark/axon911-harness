@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import subprocess
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from .ledger import append_record, current_state
 from .constants import STATUS_BLOCKED, STATUS_PASS
+from .plan_profile import active_profile, normalize_scope
 
 IN_SCOPE = "in-scope"
 UNDECLARED = "undeclared"
@@ -36,20 +38,10 @@ ALWAYS_IN_SCOPE = (
 
 
 def normalize_scope(values: Sequence[str]) -> List[str]:
-    """Split comma-joined scope arguments into individual globs.
+    """Split comma-joined scope arguments into individual globs."""
+    from .plan_profile import normalize_scope as _normalize_scope
 
-    `--scope` is repeatable, but `--scope 'a/**,b/**'` reads naturally enough
-    that it gets typed anyway. Stored verbatim it becomes one pattern that no
-    path can match, so the mistake surfaces later as an `unimplemented` entry
-    echoing the whole string back rather than as a bad argument.
-    """
-    patterns: List[str] = []
-    for value in values:
-        for part in value.split(","):
-            cleaned = part.strip()
-            if cleaned and cleaned not in patterns:
-                patterns.append(cleaned)
-    return patterns
+    return _normalize_scope(values)
 
 
 def register_scope(
@@ -122,26 +114,74 @@ def classify(
     return {IN_SCOPE: in_scope, UNDECLARED: undeclared, UNIMPLEMENTED: unimplemented}
 
 
+def branch_changed_paths(
+    root_path: str,
+    base_oid: str,
+) -> List[str]:
+    """Full branch delta against `base_oid`, plus uncommitted worktree paths."""
+    if not base_oid.strip():
+        from .fingerprint import changed_paths
+
+        return changed_paths(root_path)
+    real = os.path.realpath(root_path)
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "%s...HEAD" % base_oid.strip()],
+        cwd=real,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        timeout=30,
+    )
+    branch = [line.replace(os.sep, "/") for line in result.stdout.splitlines() if line.strip()]
+    from .fingerprint import changed_paths
+
+    worktree = changed_paths(real)
+    merged = sorted(set(branch) | set(worktree))
+    return merged
+
+
+def evaluate_against_base(
+    root: str,
+    worktree_id: str,
+    changed: Sequence[str],
+    profile: Mapping[str, Any],
+    root_path: Optional[str] = None,
+    base: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Conformance against declared scope using the profile base when set."""
+    scope = list(profile.get("scope") or [])
+    plan_hash = str(profile.get("plan_hash") or "")
+    base_oid = str(profile.get("base_oid") or "")
+    if base_oid and root_path:
+        effective_changed = branch_changed_paths(root_path, base_oid)
+    else:
+        effective_changed = list(changed)
+    result = classify(scope, effective_changed)
+    status = STATUS_BLOCKED if (result[UNDECLARED] or result[UNIMPLEMENTED]) else STATUS_PASS
+    return {
+        "status": status,
+        "plan_hash": plan_hash,
+        "base_oid": base_oid,
+        "declared": scope,
+        "changed_paths": sorted(effective_changed),
+        **result,
+    }
+
+
 def evaluate(
     root: str,
     worktree_id: str,
     changed: Sequence[str],
     base: Optional[str] = None,
+    root_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Conformance verdict for the current tree against the registered plan."""
     try:
         state = current_state(base=base, validate=False)
     except Exception:
         state = {}
-    declared = declared_scope(state, root, worktree_id)
-    result = classify(declared["scope"], changed)
-    status = STATUS_BLOCKED if (result[UNDECLARED] or result[UNIMPLEMENTED]) else STATUS_PASS
-    return {
-        "status": status,
-        "plan_hash": declared["plan_hash"],
-        "declared": declared["scope"],
-        **result,
-    }
+    profile = active_profile(state, root, worktree_id)
+    return evaluate_against_base(root, worktree_id, changed, profile, root_path=root_path, base=base)
 
 
 def summarize(result: Mapping[str, Any]) -> str:

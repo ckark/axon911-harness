@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-FINGERPRINT_VERSION = "1"
-OBLIGATION_SCHEMA_VERSION = "1"
-COMMAND_SPEC_VERSION = "1"
-VERIFIER_VERSION = "1"
+FINGERPRINT_VERSION = "2"
+OBLIGATION_SCHEMA_VERSION = "2"
+COMMAND_SPEC_VERSION = "2"
+VERIFIER_VERSION = "2"
 LEDGER_VERSION = 1
 MAX_EVENT_BYTES = 65536
 LOCK_TIMEOUT_S = 2.0
@@ -44,6 +44,17 @@ ALLOWED_PERSISTED_FIELDS = (
     # Root-relative path globs a plan declared as its scope. Metadata about the
     # plan, not content from it: no diffs, prose, or commands are persisted.
     "scope",
+    "base_oid",
+    "mirror_intent",
+    "path_surfaces",
+    "plan_context_hash",
+    "evidence_kind",
+    "artifact_hash",
+    "artifact_size",
+    "phase",
+    "handoff",
+    "changed_paths",
+    "obligation_statuses",
     "command_spec_version",
     "schema_version",
     "seq",
