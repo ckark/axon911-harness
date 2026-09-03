@@ -1,0 +1,131 @@
+#!/usr/bin/env node
+/** Batch Storybook iframe captures with render-health facts. */
+
+import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const specPath = process.argv[2];
+if (!specPath) {
+  console.error("usage: storybook-capture.mjs <spec.json>");
+  process.exit(2);
+}
+
+const spec = JSON.parse(fs.readFileSync(specPath, "utf8"));
+const playwrightRoot = spec.playwrightModuleRoot;
+if (!playwrightRoot) {
+  console.error("playwrightModuleRoot required");
+  process.exit(2);
+}
+
+const require = createRequire(path.join(playwrightRoot, "package.json"));
+const { chromium } = require("playwright");
+
+function storySlug(storyId) {
+  const [group, name] = String(storyId).split("/");
+  const groupSlug = String(group || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const nameSlug = String(name || "default")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${groupSlug}-${nameSlug}--default`;
+}
+
+function globalsQuery(theme, brand) {
+  const parts = [];
+  if (theme) parts.push(`theme:${theme}`);
+  if (brand) parts.push(`brand:${brand}`);
+  return parts.length ? `&globals=${encodeURIComponent(parts.join(";"))}` : "";
+}
+
+function parseViewport(raw) {
+  const match = String(raw || "1280x720").match(/^(\d+)x(\d+)$/);
+  return {
+    width: match ? Number(match[1]) : 1280,
+    height: match ? Number(match[2]) : 720,
+  };
+}
+
+async function captureOne(page, capture, baseUrl) {
+  const viewport = parseViewport(capture.viewport);
+  await page.setViewportSize(viewport);
+  const slug = storySlug(capture.story_id);
+  const url =
+    `${baseUrl.replace(/\/$/, "")}/iframe.html?id=${encodeURIComponent(slug)}` +
+    `&viewMode=story${globalsQuery(capture.theme, capture.brand)}`;
+  const consoleErrors = [];
+  const failedRequests = [];
+  page.removeAllListeners("console");
+  page.removeAllListeners("requestfailed");
+  page.on("console", (msg) => {
+    if (msg.type() === "error") consoleErrors.push(msg.text());
+  });
+  page.on("requestfailed", (req) => failedRequests.push(req.url()));
+
+  await page.goto(url, { waitUntil: "networkidle", timeout: 120000 });
+  await page.waitForTimeout(500);
+
+  const selector = capture.target_selector || "#storybook-root";
+  const target = page.locator(selector).first();
+  await target.waitFor({ state: "visible", timeout: 30000 });
+  const box = await target.boundingBox();
+  const stylesheetsPresent = await page.evaluate(() => document.styleSheets.length > 0);
+  const cssTokensReady = await page.evaluate(() => {
+    const style = getComputedStyle(document.documentElement);
+    return Boolean(style.getPropertyValue("--color-background-primary").trim());
+  });
+  const fontsReady = await page.evaluate(async () => {
+    if (!document.fonts) return true;
+    try {
+      await document.fonts.ready;
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  fs.mkdirSync(path.dirname(capture.output_path), { recursive: true });
+  await target.screenshot({
+    path: capture.output_path,
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+
+  return {
+    story_id: capture.story_id,
+    story_url: url,
+    target_selector: selector,
+    width: box?.width || 0,
+    height: box?.height || 0,
+    health: {
+      storybook_ready: true,
+      fonts_ready: fontsReady,
+      css_tokens_ready: cssTokensReady,
+      target_visible: (box?.width || 0) > 0 && (box?.height || 0) > 0,
+      target_bounds_nonzero: (box?.width || 0) > 0 && (box?.height || 0) > 0,
+      stylesheets_present: stylesheetsPresent,
+      console_errors: consoleErrors,
+      failed_requests: failedRequests,
+    },
+  };
+}
+
+const browser = await chromium.launch({ headless: true });
+const context = await browser.newContext();
+const page = await context.newPage();
+const results = [];
+
+for (const capture of spec.captures || []) {
+  results.push(await captureOne(page, capture, spec.baseUrl));
+}
+
+await browser.close();
+process.stdout.write(JSON.stringify({ ok: true, results }) + "\n");

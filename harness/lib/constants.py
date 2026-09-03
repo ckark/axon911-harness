@@ -6,6 +6,11 @@ FINGERPRINT_VERSION = "2"
 OBLIGATION_SCHEMA_VERSION = "2"
 COMMAND_SPEC_VERSION = "2"
 VERIFIER_VERSION = "2"
+EVIDENCE_SCHEMA_VERSION = "3"
+MIGRATION_EVIDENCE_SCHEMA_VERSION = 2
+VISUAL_EVIDENCE_MARKER_START = "<!-- visual-evidence:start"
+VISUAL_EVIDENCE_MARKER_END = "<!-- visual-evidence:end -->"
+GH_ATTACH_MIN_VERSION = (2, 99, 0)
 LEDGER_VERSION = 1
 MAX_EVENT_BYTES = 65536
 LOCK_TIMEOUT_S = 2.0
@@ -57,6 +62,14 @@ ALLOWED_PERSISTED_FIELDS = (
     "capture_state",
     "artifact_hash",
     "artifact_size",
+    "capture_receipt_hash",
+    "capture_receipt_pointer",
+    "capture_id",
+    "capture_producer",
+    "source_sha",
+    "capture_role",
+    "evidence_schema_version",
+    "migration_manifest_pointer",
     "phase",
     "handoff",
     "changed_paths",

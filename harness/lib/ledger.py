@@ -199,6 +199,7 @@ def _load_index(base: str) -> Dict[str, Any]:
             "plans": {},
             "scopes": {},
             "profiles": {},
+            "migration_manifests": {},
             "updated": 0,
         }
     with open(path, "r", encoding="utf-8") as handle:
@@ -274,6 +275,13 @@ def _apply_record_to_index(index: Dict[str, Any], record: Mapping[str, Any]) -> 
             record.get("evidence_kind"),
         )
         index.setdefault("evidence", {})[evidence_key] = dict(record)
+    if kind == "migration_manifest_binding":
+        manifest_key = "%s:%s" % (record.get("root"), record.get("worktree_id"))
+        index.setdefault("migration_manifests", {})[manifest_key] = {
+            "pointer": record.get("migration_manifest_pointer") or "",
+            "plan_hash": record.get("plan_hash") or "",
+            "ts": record.get("ts"),
+        }
     if kind == "session_handoff":
         session_key = "%s:%s" % (record.get("worktree_id"), record.get("session_id"))
         index.setdefault("handoffs", {})[session_key] = dict(record.get("handoff") or record)

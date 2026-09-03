@@ -9,16 +9,22 @@ import tempfile
 import unittest
 
 HARNESS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+TESTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HARNESS)
+sys.path.insert(0, TESTS)
 
+from helpers.evidence_helpers import write_capture_receipt, write_min_png  # noqa: E402
 from lib.evidence import record_evidence  # noqa: E402
 from lib.ledger import current_state  # noqa: E402
 from lib.migration_evidence import (  # noqa: E402
     load_manifest,
+    manifest_sha256,
+    merge_pr_body,
     obligation_id_for_change,
     revalidate_migration_manifest,
     render_pr_body,
     validate_manifest_shape,
+    verify_pr_body_block,
 )
 
 
@@ -27,22 +33,24 @@ class MigrationEvidenceTests(unittest.TestCase):
         self.base = tempfile.mkdtemp()
         self.root = tempfile.mkdtemp()
         self.manifest_path = os.path.join(self.root, "manifest.json")
+        self.capture = {
+            "story_id": "Dispatch App/chatroom/ShareBanner",
+            "theme": "dark",
+            "brand": "prepared",
+            "viewport": "1280x720",
+            "state": "shared-unacknowledged",
+        }
         self.manifest = {
+            "schema_version": 2,
             "plan_hash": "core819-call-taking",
             "changes": [
                 {
                     "change_id": "share-banner-notes",
                     "title": "ShareBanner PSAP share callout",
                     "source_paths": ["turbo/apps/dispatch/src/modules/chatroom-psap-sharing/ShareBanner/ShareBanner.tsx"],
-                    "capture": {
-                        "story_id": "Dispatch App/chatroom/ShareBanner",
-                        "theme": "dark",
-                        "brand": "prepared",
-                        "viewport": "1280x720",
-                        "state": "shared-unacknowledged",
-                    },
-                    "before_url": "https://example.com/before.png",
-                    "after_url": "https://example.com/after.png",
+                    "capture": self.capture,
+                    "before_url": "https://github.com/user-attachments/assets/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "after_url": "https://github.com/user-attachments/assets/11111111-2222-3333-4444-555555555555",
                 }
             ],
         }
@@ -50,17 +58,30 @@ class MigrationEvidenceTests(unittest.TestCase):
             json.dump(self.manifest, handle)
         self.before_path = os.path.join(self.root, "before.png")
         self.after_path = os.path.join(self.root, "after.png")
-        with open(self.before_path, "wb") as handle:
-            handle.write(b"\x89PNG\r\n\x1a\nbefore")
-        with open(self.after_path, "wb") as handle:
-            handle.write(b"\x89PNG\r\n\x1a\nafter")
+        write_min_png(self.before_path)
+        write_min_png(self.after_path)
+        self.before_receipt = os.path.join(self.root, "before.receipt.json")
+        self.after_receipt = os.path.join(self.root, "after.receipt.json")
+        write_capture_receipt(
+            self.before_receipt,
+            self.before_path,
+            capture=self.capture,
+            source_sha="base123",
+            role="before",
+        )
+        write_capture_receipt(
+            self.after_receipt,
+            self.after_path,
+            capture=self.capture,
+            source_sha="head123",
+            role="after",
+        )
 
     def test_manifest_shape_validation(self) -> None:
         errors = validate_manifest_shape(self.manifest)
         self.assertEqual(errors, [])
 
     def test_record_and_revalidate_change_pair(self) -> None:
-        capture = self.manifest["changes"][0]["capture"]
         obligation = obligation_id_for_change("prepared911", "share-banner-notes")
         record_evidence(
             "prepared911",
@@ -74,7 +95,9 @@ class MigrationEvidenceTests(unittest.TestCase):
             os.path.basename(self.before_path),
             base_oid="base123",
             change_id="share-banner-notes",
-            capture=capture,
+            capture=self.capture,
+            capture_receipt_path=os.path.basename(self.before_receipt),
+            source_sha="base123",
             base=self.base,
         )
         record_evidence(
@@ -88,7 +111,9 @@ class MigrationEvidenceTests(unittest.TestCase):
             "after",
             os.path.basename(self.after_path),
             change_id="share-banner-notes",
-            capture=capture,
+            capture=self.capture,
+            capture_receipt_path=os.path.basename(self.after_receipt),
+            source_sha="head123",
             base=self.base,
         )
         state = current_state(base=self.base)
@@ -101,14 +126,44 @@ class MigrationEvidenceTests(unittest.TestCase):
             "ctx",
             base_oid="base123",
             fingerprint="fp-after",
+            active_plan_hash="core819-call-taking",
         )
         self.assertEqual(errors, [])
 
-    def test_render_pr_body_uses_urls(self) -> None:
-        body = render_pr_body(load_manifest(self.manifest_path))
+    def test_render_pr_body_requires_urls(self) -> None:
+        body = render_pr_body(
+            load_manifest(self.manifest_path),
+            base_sha="base123",
+            head_sha="head123",
+            manifest_hash=manifest_sha256(self.manifest),
+        )
         self.assertIn("ShareBanner PSAP share callout", body)
-        self.assertIn("https://example.com/before.png", body)
-        self.assertIn("https://example.com/after.png", body)
+        self.assertIn("visual-evidence:start", body)
+        self.assertIn("visual-evidence:end", body)
+        self.assertIn("https://github.com/user-attachments/assets/", body)
+
+    def test_merge_pr_body_preserves_cursor_summary(self) -> None:
+        existing = "Intro\n\n<!-- CURSOR_SUMMARY -->summary\n"
+        block = render_pr_body(self.manifest, base_sha="b", head_sha="h", manifest_hash="abc")
+        merged = merge_pr_body(existing, block)
+        self.assertLess(merged.index("Visual changes"), merged.index("CURSOR_SUMMARY"))
+        self.assertIn("summary", merged)
+
+    def test_verify_pr_body_block(self) -> None:
+        body = render_pr_body(
+            self.manifest,
+            base_sha="base123",
+            head_sha="head123",
+            manifest_hash=manifest_sha256(self.manifest),
+        )
+        errors = verify_pr_body_block(
+            body,
+            base_sha="base123",
+            head_sha="head123",
+            manifest_hash=manifest_sha256(self.manifest),
+            expected_change_count=1,
+        )
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

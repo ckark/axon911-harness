@@ -44,7 +44,7 @@ def obligation_spec(obligation_id: str) -> Dict[str, str]:
         return {"id": obligation_id, "kind": "rendered_evidence", "check": "evidence"}
     if obligation_id.endswith(".rendered-evidence"):
         return {"id": obligation_id, "kind": "rendered_evidence", "check": "evidence"}
-    if kind == "docs_page":
+    if ".docs-page" in obligation_id:
         return {"id": obligation_id, "kind": "docs_page", "check": ""}
 
     return {"id": obligation_id, "kind": "unknown", "check": ""}
@@ -92,6 +92,11 @@ def validate_attestation_command(
         if any(marker in text for marker in EVIDENCE_MARKERS):
             return True, "ok"
         return False, "rendered-evidence-requires-storybook-or-playwright"
+
+    if ".migration-evidence." in obligation_id:
+        if "migration-evidence" in text or any(marker in text for marker in EVIDENCE_MARKERS):
+            return True, "ok"
+        return False, "migration-evidence-requires-storybook-or-playwright"
 
     if kind == "docs_registry" and expected_regenerate:
         if expected_regenerate not in text and expected_check not in text:

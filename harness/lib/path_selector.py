@@ -101,6 +101,13 @@ def _triggered_for_path(root_id: str, path: str) -> List[Dict[str, str]]:
     return triggered_obligations(root_id, [path])
 
 
+def _migration_manifest_path(profile: Mapping[str, Any], root_id: str) -> str:
+    pointer = str(profile.get("migration_manifest_pointer") or os.environ.get("HARNESS_MIGRATION_MANIFEST") or "")
+    if pointer and os.path.isfile(pointer):
+        return pointer
+    return ""
+
+
 def select_obligations(
     root_id: str,
     changed_paths: Sequence[str],
@@ -181,6 +188,16 @@ def select_obligations(
         required = {item for item in required if not item.endswith(".rendered-evidence")}
     if user_visible and existing_surface:
         required.add("%s.rendered-evidence.before-after" % root_id)
+
+    migration_manifest_path = _migration_manifest_path(profile, root_id)
+    if migration_manifest_path:
+        try:
+            from .migration_evidence import load_manifest, migration_obligation_ids
+
+            manifest = load_manifest(migration_manifest_path)
+            required.update(migration_obligation_ids(root_id, manifest))
+        except (OSError, ValueError):
+            classification_errors.append("invalid migration manifest: %s" % migration_manifest_path)
 
     if include_review and review_required(tier):
         required.add("review.%s" % tier)

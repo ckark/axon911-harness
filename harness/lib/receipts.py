@@ -406,12 +406,13 @@ def evaluate_gate(
         if root_path and (
             obligation_id.endswith(".rendered-evidence")
             or obligation_id.endswith(".rendered-evidence.before-after")
+            or ".migration-evidence." in obligation_id
         ):
             from .evidence import revalidate_evidence
 
             base_oid = ""
             require_before = False
-            if obligation_id.endswith(".rendered-evidence.before-after"):
+            if obligation_id.endswith(".rendered-evidence.before-after") or ".migration-evidence." in obligation_id:
                 profile = active_profile(state, root, worktree_id)
                 base_oid = str(profile.get("base_oid") or "")
                 require_before = True

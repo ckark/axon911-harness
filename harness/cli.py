@@ -598,6 +598,8 @@ def cmd_record_evidence(argv: Sequence[str]) -> int:
     parser.add_argument("--brand", default="")
     parser.add_argument("--viewport", default="")
     parser.add_argument("--state", default="")
+    parser.add_argument("--capture-receipt", default="")
+    parser.add_argument("--source-sha", default="")
     args = parser.parse_args(argv)
     obligation_id = args.obligation_id
     if not obligation_id:
@@ -635,6 +637,8 @@ def cmd_record_evidence(argv: Sequence[str]) -> int:
             base_oid=str(profile.get("base_oid") or ""),
             change_id=args.change_id,
             capture=capture or None,
+            capture_receipt_path=args.capture_receipt,
+            source_sha=args.source_sha,
         )
     except ValueError as exc:
         sys.stderr.write("record-evidence: %s\n" % exc)
@@ -647,7 +651,17 @@ def cmd_migration_evidence(argv: Sequence[str]) -> int:
 
     from dispatch.common import snap
     from lib.ledger import current_state
-    from lib.migration_evidence import load_manifest, render_pr_body, revalidate_migration_manifest
+    from lib.migration_evidence import (
+        load_manifest,
+        manifest_sha256,
+        merge_pr_body,
+        register_migration_manifest,
+        render_pr_body,
+        revalidate_migration_manifest,
+        verify_pr_body_block,
+    )
+    from lib.github_attach import GitHubAttachError, attach_pr_files, extract_attachment_urls, require_gh_attach
+    from lib.paths import runtime_dir
     from lib.plan_profile import profile_from_state
 
     parser = argparse.ArgumentParser(prog="migration-evidence")
@@ -661,16 +675,117 @@ def cmd_migration_evidence(argv: Sequence[str]) -> int:
     pr_body = sub.add_parser("pr-body")
     pr_body.add_argument("--manifest", required=True)
     pr_body.add_argument("--output", default="")
+    pr_body.add_argument("--base-sha", default="")
+    pr_body.add_argument("--head-sha", default="")
+
+    register = sub.add_parser("register-manifest")
+    register.add_argument("--root", required=True)
+    register.add_argument("--manifest", required=True)
+    register.add_argument("--plan-hash", default="")
+
+    attach = sub.add_parser("attach-pr")
+    attach.add_argument("--repo", required=True)
+    attach.add_argument("--pr", type=int, required=True)
+    attach.add_argument("--manifest", required=True)
+    attach.add_argument("--base-sha", required=True)
+    attach.add_argument("--head-sha", required=True)
+    attach.add_argument("--body-file", default="")
 
     args = parser.parse_args(argv)
     manifest = load_manifest(args.manifest)
+    if args.action == "register-manifest":
+        root_path = resolve_cli_root(args.root)
+        current = snap(args.root, root_path)
+        profile = profile_from_state(args.root, current["worktree_id"])
+        register_migration_manifest(
+            args.root,
+            current["worktree_id"],
+            current["fingerprint"],
+            args.plan_hash or profile.get("plan_hash") or str(manifest.get("plan_hash") or ""),
+            args.manifest,
+        )
+        return 0
+
     if args.action == "pr-body":
-        body = render_pr_body(manifest)
+        body = render_pr_body(
+            manifest,
+            base_sha=args.base_sha,
+            head_sha=args.head_sha,
+            manifest_hash=manifest_sha256(manifest),
+        )
         if args.output:
             with open(args.output, "w", encoding="utf-8") as handle:
                 handle.write(body)
         else:
             sys.stdout.write(body)
+        return 0
+
+    if args.action == "attach-pr":
+        try:
+            require_gh_attach()
+        except GitHubAttachError as exc:
+            sys.stderr.write("migration-evidence attach-pr: %s\n" % exc)
+            return 2
+        manifest_hash = manifest_sha256(manifest)
+        body = render_pr_body(
+            manifest,
+            base_sha=args.base_sha,
+            head_sha=args.head_sha,
+            manifest_hash=manifest_hash,
+        )
+        import subprocess
+
+        current_body = subprocess.run(
+            ["gh", "pr", "view", str(args.pr), "--repo", args.repo, "--json", "body", "-q", ".body"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if current_body.returncode != 0:
+            sys.stderr.write(current_body.stderr or "failed to fetch PR body\n")
+            return 2
+        merged = merge_pr_body(current_body.stdout, body)
+        body_path = args.body_file or os.path.join(runtime_dir(), "pr-body-%s.md" % args.pr)
+        with open(body_path, "w", encoding="utf-8") as handle:
+            handle.write(merged)
+        files = []
+        for item in manifest.get("changes") or []:
+            if not isinstance(item, dict):
+                continue
+            for kind in ("before", "after"):
+                pointer = str(item.get("%s_artifact" % kind) or item.get("%s_path" % kind) or "")
+                if pointer and os.path.isfile(pointer):
+                    files.append(pointer)
+        try:
+            attach_pr_files(args.repo, args.pr, files, body_file=body_path)
+        except GitHubAttachError as exc:
+            sys.stderr.write("migration-evidence attach-pr: %s\n" % exc)
+            return 2
+        refreshed = subprocess.run(
+            ["gh", "pr", "view", str(args.pr), "--repo", args.repo, "--json", "body,baseRefOid,headRefOid", "-q", "."],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if refreshed.returncode != 0:
+            sys.stderr.write(refreshed.stderr or "failed to refetch PR body\n")
+            return 2
+        payload = json.loads(refreshed.stdout or "{}")
+        errors = verify_pr_body_block(
+            str(payload.get("body") or ""),
+            base_sha=str(payload.get("baseRefOid") or args.base_sha),
+            head_sha=str(payload.get("headRefOid") or args.head_sha),
+            manifest_hash=manifest_hash,
+            expected_change_count=len(manifest.get("changes") or []),
+        )
+        urls = extract_attachment_urls(str(payload.get("body") or ""))
+        sys.stdout.write("attached_urls=%d\n" % len(urls))
+        if errors:
+            for item in errors:
+                sys.stderr.write("- %s\n" % item)
+            return 1
         return 0
 
     root_path = resolve_cli_root(args.root)
@@ -686,6 +801,7 @@ def cmd_migration_evidence(argv: Sequence[str]) -> int:
         profile.get("plan_context_hash") or "",
         base_oid=str(profile.get("base_oid") or ""),
         fingerprint=current["fingerprint"],
+        active_plan_hash=str(profile.get("plan_hash") or ""),
     )
     if args.as_json:
         json.dump({"errors": list(errors), "ok": not errors}, sys.stdout, indent=2)
