@@ -513,6 +513,7 @@ def cmd_verify(argv: Sequence[str]) -> int:
         selection=selection,
         conformance=conformance,
         explain=args.explain,
+        mutation_family=args.family,
     )
     report = {
         "root": args.root,

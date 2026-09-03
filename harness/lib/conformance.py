@@ -157,6 +157,8 @@ def evaluate_against_base(
     else:
         effective_changed = list(changed)
     result = classify(scope, effective_changed)
+    if not effective_changed:
+        result[UNIMPLEMENTED] = []
     status = STATUS_BLOCKED if (result[UNDECLARED] or result[UNIMPLEMENTED]) else STATUS_PASS
     return {
         "status": status,

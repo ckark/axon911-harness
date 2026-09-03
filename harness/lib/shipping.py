@@ -81,6 +81,7 @@ def evaluate_ship_plan(
         base=base,
         selection=selection,
         conformance=conformance,
+        mutation_family=family,
     )
     recovery = gate.get("recovery") or build_recovery([], profile.get("plan_hash") or "")
     attestable = []

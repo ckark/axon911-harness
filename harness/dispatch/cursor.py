@@ -173,6 +173,7 @@ def _stop(payload: Mapping[str, Any], root_id: str, cwd: Any) -> Dict[str, Any]:
         selection=selection,
         conformance=conformance,
         explain=True,
+        mutation_family="git-commit",
     )
     if gate["status"] != STATUS_PASS:
         recovery = gate.get("recovery") or {}

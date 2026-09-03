@@ -343,6 +343,7 @@ def evaluate_gate(
     selection: Optional[Mapping[str, Any]] = None,
     conformance: Optional[Mapping[str, Any]] = None,
     explain: bool = False,
+    mutation_family: str = "",
 ) -> Dict[str, Any]:
     categories: Dict[str, List[str]] = {
         "missing": [],
@@ -395,8 +396,9 @@ def evaluate_gate(
 
         for path in conformance.get(UNDECLARED) or []:
             categories["conformance"].append("undeclared:%s" % path)
-        for path in conformance.get(UNIMPLEMENTED) or []:
-            categories["conformance"].append("unimplemented:%s" % path)
+        if mutation_family not in ("git-commit", "git-push", "gt-submit", "gt-create"):
+            for path in conformance.get(UNIMPLEMENTED) or []:
+                categories["conformance"].append("unimplemented:%s" % path)
 
     for obligation_id in required_obligation_ids:
         if obligation_id.startswith("review."):

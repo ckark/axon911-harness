@@ -197,6 +197,7 @@ def shell_decision(command: str, cwd: str) -> Dict[str, Any]:
         root_path=root_path,
         selection=selection,
         conformance=conformance,
+        mutation_family=classified.get("family") or "",
     )
     return {
         "permission": gate["permission"],
