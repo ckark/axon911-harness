@@ -12,7 +12,7 @@ const slug = Object.values(entries).find((e) => e.title === storyRef)?.id;
 console.log("slug", slug);
 const browser = await chromium.launch();
 const page = await browser.newPage();
-await page.goto(`${baseUrl}/iframe.html?id=${slug}&viewMode=story&globals=theme:dark;brand:prepared`, {waitUntil:'networkidle', timeout:120000});
+await page.goto(`${baseUrl}/iframe.html?id=${slug}&viewMode=story&globals=${encodeURIComponent("theme:dark;uiBrand:prepared;backgrounds.value:#111")}`, {waitUntil:'networkidle', timeout:120000});
 await page.waitForTimeout(8000);
 const info = await page.evaluate(() => ({
   bodyClass: document.body.className,

@@ -70,6 +70,7 @@ def write_capture_receipt(
             "storybook_ready": True,
             "fonts_ready": True,
             "css_tokens_ready": True,
+            "theme_applied": True,
             "target_visible": True,
             "target_bounds_nonzero": True,
             "stylesheets_present": True,

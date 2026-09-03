@@ -13,6 +13,7 @@ sys.path.insert(0, HARNESS)
 sys.path.insert(0, TESTS)
 
 from helpers.evidence_helpers import write_capture_receipt, write_min_png  # noqa: E402
+from lib.capture_receipt import load_capture_receipt, validate_capture_receipt_binding  # noqa: E402
 from lib.evidence import record_evidence, revalidate_evidence  # noqa: E402
 from lib.ledger import current_state  # noqa: E402
 from lib.media_validation import MediaValidationError, validate_image_artifact  # noqa: E402
@@ -61,6 +62,14 @@ class EvidenceReceiptTests(unittest.TestCase):
             handle.write(b"\x89PNG\r\n\x1a\nnot-a-real-image")
         with self.assertRaises(MediaValidationError):
             validate_image_artifact(fake)
+
+    def test_reject_receipt_without_applied_theme(self) -> None:
+        receipt = load_capture_receipt(self.receipt)
+        receipt["health"]["theme_applied"] = False
+
+        errors = validate_capture_receipt_binding(receipt, self.artifact)
+
+        self.assertIn("capture-health-failed:theme_applied", errors)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from .media_validation import validate_image_artifact
 
 CAPTURE_PRODUCER = "prepared911-harness/storybook-capture"
-CAPTURE_RECEIPT_VERSION = 1
+CAPTURE_RECEIPT_VERSION = 2
 
 REQUIRED_RECEIPT_KEYS = (
     "version",
@@ -38,6 +38,7 @@ REQUIRED_HEALTH_KEYS = (
     "storybook_ready",
     "fonts_ready",
     "css_tokens_ready",
+    "theme_applied",
     "target_visible",
     "target_bounds_nonzero",
     "stylesheets_present",
@@ -87,7 +88,15 @@ def validate_capture_receipt_shape(receipt: Mapping[str, Any]) -> List[str]:
 def validate_capture_receipt_health(receipt: Mapping[str, Any]) -> List[str]:
     errors: List[str] = []
     health = receipt.get("health") or {}
-    for key in ("storybook_ready", "fonts_ready", "css_tokens_ready", "target_visible", "target_bounds_nonzero", "stylesheets_present"):
+    for key in (
+        "storybook_ready",
+        "fonts_ready",
+        "css_tokens_ready",
+        "theme_applied",
+        "target_visible",
+        "target_bounds_nonzero",
+        "stylesheets_present",
+    ):
         if not health.get(key):
             errors.append("capture-health-failed:%s" % key)
     if health.get("console_errors"):

@@ -4,7 +4,6 @@
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 const specPath = process.argv[2];
 if (!specPath) {
@@ -21,6 +20,8 @@ if (!playwrightRoot) {
 
 const require = createRequire(path.join(playwrightRoot, "package.json"));
 const { chromium } = require("playwright");
+
+const CAPTURE_PADDING_PX = 16;
 
 async function loadStoryIndex(baseUrl) {
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/index.json`);
@@ -47,7 +48,7 @@ function resolveStoryId(entries, storyRef, exportName = "Default") {
     return false;
   });
   const narrowed = matches.filter((entry) => String(entry.name || entry.exportName || "") === exportName);
-  const chosen = (narrowed[0] || matches[0]);
+  const chosen = narrowed[0] || matches[0];
   if (!chosen) {
     throw new Error(`story not found in index: ${needle}`);
   }
@@ -57,7 +58,10 @@ function resolveStoryId(entries, storyRef, exportName = "Default") {
 function globalsQuery(theme, brand) {
   const parts = [];
   if (theme) parts.push(`theme:${theme}`);
-  if (brand) parts.push(`brand:${brand}`);
+  if (brand) parts.push(`uiBrand:${brand}`);
+  if (theme === "dark") {
+    parts.push("backgrounds.value:#111");
+  }
   return parts.length ? `&globals=${encodeURIComponent(parts.join(";"))}` : "";
 }
 
@@ -77,6 +81,77 @@ async function cssTokensReady(page) {
         style.getPropertyValue("--color-background").trim(),
     );
   });
+}
+
+async function themeApplied(page, theme) {
+  return page.evaluate((expectedTheme) => {
+    const html = document.documentElement;
+    const bodyStyle = getComputedStyle(document.body);
+    const bg = bodyStyle.backgroundColor || "";
+    const hasBrandClass = Array.from(html.classList).some((name) => name.startsWith("brand-"));
+    const darkish =
+      bg.includes("rgb(") &&
+      bg
+        .replace(/[^\d,]/g, "")
+        .split(",")
+        .slice(0, 3)
+        .every((part) => Number(part) <= 40);
+    const lightish =
+      bg.includes("rgb(") &&
+      bg
+        .replace(/[^\d,]/g, "")
+        .split(",")
+        .slice(0, 3)
+        .every((part) => Number(part) >= 210);
+    const themeLooksCorrect = (expectedTheme === "light" ? lightish : darkish) && hasBrandClass;
+    return {
+      hasBrandClass,
+      themeLooksCorrect,
+      bodyBackground: bg,
+    };
+  }, theme);
+}
+
+async function bootstrapBrandClass(page, brand) {
+  const normalized = String(brand || "prepared").trim() || "prepared";
+  await page.evaluate((value) => {
+    const html = document.documentElement;
+    for (const className of Array.from(html.classList)) {
+      if (className.startsWith("brand-")) {
+        html.classList.remove(className);
+      }
+    }
+    html.classList.add(`brand-${value}`);
+  }, normalized);
+}
+
+async function resolveCaptureClip(page, selector) {
+  const clip = await page.evaluate(
+    ({ rootSelector, padding }) => {
+      const root = document.querySelector(rootSelector);
+      if (!root) {
+        return null;
+      }
+      const preferred =
+        root.querySelector(".rt-CalloutRoot") ||
+        root.querySelector("[role='status']") ||
+        root.querySelector(".pr-callout") ||
+        root.firstElementChild ||
+        root;
+      const rect = preferred.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+      return {
+        x: Math.max(0, rect.x - padding),
+        y: Math.max(0, rect.y - padding),
+        width: rect.width + padding * 2,
+        height: rect.height + padding * 2,
+      };
+    },
+    { rootSelector: selector, padding: CAPTURE_PADDING_PX },
+  );
+  return clip;
 }
 
 async function captureOne(page, capture, baseUrl, entries) {
@@ -104,7 +179,8 @@ async function captureOne(page, capture, baseUrl, entries) {
       undefined,
       { timeout: 120000 },
     );
-    if (await cssTokensReady(page)) {
+    await bootstrapBrandClass(page, capture.brand || "prepared");
+    if ((await cssTokensReady(page)) && (await themeApplied(page, capture.theme || "dark")).themeLooksCorrect) {
       break;
     }
     const staleDeps = failedRequests.some((entry) => entry.includes("Outdated Optimize Dep"));
@@ -129,9 +205,11 @@ async function captureOne(page, capture, baseUrl, entries) {
   const selector = capture.target_selector || "#storybook-root";
   const target = page.locator(selector).first();
   await target.waitFor({ state: "visible", timeout: 30000 });
-  const box = await target.boundingBox();
+  const clip = await resolveCaptureClip(page, selector);
+  const box = clip || (await target.boundingBox());
   const stylesheetsPresent = await page.evaluate(() => document.styleSheets.length > 0);
   const cssTokensReadyValue = await cssTokensReady(page);
+  const themeState = await themeApplied(page, capture.theme || "dark");
   const fontsReady = await page.evaluate(async () => {
     if (!document.fonts) return true;
     try {
@@ -143,12 +221,22 @@ async function captureOne(page, capture, baseUrl, entries) {
   });
 
   fs.mkdirSync(path.dirname(capture.output_path), { recursive: true });
-  await target.screenshot({
-    path: capture.output_path,
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-  });
+  if (clip) {
+    await page.screenshot({
+      path: capture.output_path,
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      clip,
+    });
+  } else {
+    await target.screenshot({
+      path: capture.output_path,
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+    });
+  }
 
   return {
     story_id: capture.story_id,
@@ -161,6 +249,7 @@ async function captureOne(page, capture, baseUrl, entries) {
       storybook_ready: true,
       fonts_ready: fontsReady,
       css_tokens_ready: cssTokensReadyValue,
+      theme_applied: themeState.themeLooksCorrect,
       target_visible: (box?.width || 0) > 0 && (box?.height || 0) > 0,
       target_bounds_nonzero: (box?.width || 0) > 0 && (box?.height || 0) > 0,
       stylesheets_present: stylesheetsPresent,
@@ -171,7 +260,9 @@ async function captureOne(page, capture, baseUrl, entries) {
 }
 
 const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext();
+const context = await browser.newContext({
+  colorScheme: "dark",
+});
 const page = await context.newPage();
 const entries = await loadStoryIndex(spec.baseUrl);
 const results = [];
