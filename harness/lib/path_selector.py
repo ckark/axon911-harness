@@ -102,7 +102,12 @@ def _triggered_for_path(root_id: str, path: str) -> List[Dict[str, str]]:
 
 
 def _migration_manifest_path(profile: Mapping[str, Any], root_id: str) -> str:
-    pointer = str(profile.get("migration_manifest_pointer") or os.environ.get("HARNESS_MIGRATION_MANIFEST") or "")
+    pointer = str(
+        profile.get("evidence_manifest_pointer")
+        or profile.get("migration_manifest_pointer")
+        or os.environ.get("HARNESS_MIGRATION_MANIFEST")
+        or ""
+    )
     if pointer and os.path.isfile(pointer):
         return pointer
     return ""
@@ -120,6 +125,7 @@ def select_obligations(
     from .receipts import review_required
 
     scope = list(profile.get("scope") or [])
+    strict = bool(profile.get("strict"))
     path_surfaces = dict(profile.get("path_surfaces") or {})
     mirror_intent = str(profile.get("mirror_intent") or "")
     profiled = bool(profile.get("profiled"))
@@ -134,10 +140,16 @@ def select_obligations(
     normalized_paths = sorted({_normalize(path) for path in changed_paths if str(path).strip()})
 
     if scope:
-        conf = classify(scope, normalized_paths)
+        conf = classify(
+            scope,
+            normalized_paths,
+            required_paths=list(profile.get("required_paths") or []),
+            strict=strict,
+        )
         for path in conf.get("undeclared") or []:
-            if not _always_in_scope(path):
-                classification_errors.append("undeclared path outside plan scope: %s" % path)
+            if not strict and _always_in_scope(path):
+                continue
+            classification_errors.append("undeclared path outside plan scope: %s" % path)
 
     overlapping: Dict[str, Set[str]] = {}
     for path in normalized_paths:

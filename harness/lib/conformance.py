@@ -87,7 +87,11 @@ def _matches(path: str, patterns: Sequence[str]) -> bool:
 
 
 def classify(
-    scope: Sequence[str], changed: Sequence[str]
+    scope: Sequence[str],
+    changed: Sequence[str],
+    *,
+    required_paths: Sequence[str] = (),
+    strict: bool = False,
 ) -> Dict[str, List[str]]:
     """Split changed paths against a declared scope.
 
@@ -99,16 +103,15 @@ def classify(
 
     in_scope, undeclared = [], []
     for path in sorted(changed):
-        if _matches(path, scope) or _matches(os.path.basename(path), ALWAYS_IN_SCOPE):
+        exempt = _matches(path, ALWAYS_IN_SCOPE) and not strict
+        if _matches(path, scope) or exempt:
             in_scope.append(path)
         else:
             undeclared.append(path)
 
-    # A declared pattern that nothing matched is work the plan promised and the
-    # implementation has not delivered.
     unimplemented = sorted(
         pattern
-        for pattern in scope
+        for pattern in required_paths or scope
         if not any(_matches(path, [pattern]) for path in changed)
     )
     return {IN_SCOPE: in_scope, UNDECLARED: undeclared, UNIMPLEMENTED: unimplemented}
@@ -150,13 +153,20 @@ def evaluate_against_base(
 ) -> Dict[str, Any]:
     """Conformance against declared scope using the profile base when set."""
     scope = list(profile.get("scope") or [])
+    required_paths = list(profile.get("required_paths") or [])
+    strict = bool(profile.get("strict"))
     plan_hash = str(profile.get("plan_hash") or "")
     base_oid = str(profile.get("base_oid") or "")
     if base_oid and root_path:
         effective_changed = branch_changed_paths(root_path, base_oid)
     else:
         effective_changed = list(changed)
-    result = classify(scope, effective_changed)
+    result = classify(
+        scope,
+        effective_changed,
+        required_paths=required_paths,
+        strict=strict,
+    )
     if not effective_changed:
         result[UNIMPLEMENTED] = []
     status = STATUS_BLOCKED if (result[UNDECLARED] or result[UNIMPLEMENTED]) else STATUS_PASS

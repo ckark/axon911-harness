@@ -59,21 +59,21 @@ class MigrationEvidenceTests(unittest.TestCase):
         self.before_path = os.path.join(self.root, "before.png")
         self.after_path = os.path.join(self.root, "after.png")
         write_min_png(self.before_path)
-        write_min_png(self.after_path)
+        write_min_png(self.after_path, width=129)
         self.before_receipt = os.path.join(self.root, "before.receipt.json")
         self.after_receipt = os.path.join(self.root, "after.receipt.json")
         write_capture_receipt(
             self.before_receipt,
             self.before_path,
             capture=self.capture,
-            source_sha="base123",
+            source_sha="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             role="before",
         )
         write_capture_receipt(
             self.after_receipt,
             self.after_path,
             capture=self.capture,
-            source_sha="head123",
+            source_sha="cccccccccccccccccccccccccccccccccccccccc",
             role="after",
         )
 
@@ -93,11 +93,11 @@ class MigrationEvidenceTests(unittest.TestCase):
             obligation,
             "before",
             os.path.basename(self.before_path),
-            base_oid="base123",
+            base_oid="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             change_id="share-banner-notes",
             capture=self.capture,
             capture_receipt_path=os.path.basename(self.before_receipt),
-            source_sha="base123",
+            source_sha="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             base=self.base,
         )
         record_evidence(
@@ -113,7 +113,7 @@ class MigrationEvidenceTests(unittest.TestCase):
             change_id="share-banner-notes",
             capture=self.capture,
             capture_receipt_path=os.path.basename(self.after_receipt),
-            source_sha="head123",
+            source_sha="cccccccccccccccccccccccccccccccccccccccc",
             base=self.base,
         )
         state = current_state(base=self.base)
@@ -124,7 +124,7 @@ class MigrationEvidenceTests(unittest.TestCase):
             "wt",
             load_manifest(self.manifest_path),
             "ctx",
-            base_oid="base123",
+            base_oid="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             fingerprint="fp-after",
             active_plan_hash="core819-call-taking",
         )
@@ -148,6 +148,66 @@ class MigrationEvidenceTests(unittest.TestCase):
         merged = merge_pr_body(existing, block)
         self.assertLess(merged.index("Visual changes"), merged.index("CURSOR_SUMMARY"))
         self.assertIn("summary", merged)
+
+    def test_identical_before_after_hash_is_rejected(self) -> None:
+        obligation = obligation_id_for_change("prepared911", "share-banner-notes")
+        import shutil
+
+        shutil.copyfile(self.before_path, self.after_path)
+        write_capture_receipt(
+            self.after_receipt,
+            self.after_path,
+            capture=self.capture,
+            source_sha="cccccccccccccccccccccccccccccccccccccccc",
+            role="after",
+        )
+        record_evidence(
+            "prepared911",
+            self.root,
+            "wt",
+            "fp-before",
+            "core819-call-taking",
+            "ctx",
+            obligation,
+            "before",
+            os.path.basename(self.before_path),
+            base_oid="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            change_id="share-banner-notes",
+            capture=self.capture,
+            capture_receipt_path=os.path.basename(self.before_receipt),
+            source_sha="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            base=self.base,
+        )
+        record_evidence(
+            "prepared911",
+            self.root,
+            "wt",
+            "fp-after",
+            "core819-call-taking",
+            "ctx",
+            obligation,
+            "after",
+            os.path.basename(self.after_path),
+            change_id="share-banner-notes",
+            capture=self.capture,
+            capture_receipt_path=os.path.basename(self.after_receipt),
+            source_sha="cccccccccccccccccccccccccccccccccccccccc",
+            base=self.base,
+        )
+        state = current_state(base=self.base)
+        errors = revalidate_migration_manifest(
+            self.root,
+            state,
+            "prepared911",
+            "wt",
+            load_manifest(self.manifest_path),
+            "ctx",
+            base_oid="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            fingerprint="fp-after",
+            active_plan_hash="core819-call-taking",
+            require_hosted_urls=False,
+        )
+        self.assertIn("before-after-hash-identical:share-banner-notes", errors)
 
     def test_verify_pr_body_block(self) -> None:
         body = render_pr_body(

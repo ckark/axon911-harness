@@ -7,7 +7,12 @@ import os
 import time
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-from .constants import STATUS_PASS
+from .constants import (
+    SESSION_MAX_ASSISTANT_TURNS,
+    SESSION_MAX_CONTEXT_BYTES,
+    STATUS_BLOCKED,
+    STATUS_PASS,
+)
 from .ledger import append_record, current_state
 from .path_selector import select_obligations
 from .plan_profile import active_profile
@@ -175,6 +180,74 @@ def _git_head(root_path: str) -> str:
         return result.stdout.strip()
     except Exception:
         return ""
+
+
+def estimate_transcript_cost(transcript_path: str) -> Dict[str, Any]:
+    """Estimate assistant turns and transcript bytes from a Cursor JSONL file."""
+    main_running = 0
+    main_turns = 0
+    with open(transcript_path, encoding="utf-8") as handle:
+        for line in handle:
+            main_running += len(line.encode("utf-8"))
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("role") == "assistant":
+                main_turns += 1
+
+    subagent_dir = os.path.join(os.path.dirname(transcript_path), "subagents")
+    sub_running = 0
+    sub_count = 0
+    if os.path.isdir(subagent_dir):
+        for name in os.listdir(subagent_dir):
+            if not name.endswith(".jsonl"):
+                continue
+            sub_count += 1
+            with open(os.path.join(subagent_dir, name), encoding="utf-8") as handle:
+                running = 0
+                for line in handle:
+                    running += len(line.encode("utf-8"))
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if event.get("role") == "assistant":
+                        sub_running += running
+
+    context_bytes = main_running + sub_running
+    return {
+        "main_assistant_turns": main_turns,
+        "context_bytes": context_bytes,
+        "subagent_count": sub_count,
+        "total_billed_tokens_estimate": int(context_bytes / 4),
+    }
+
+
+def budget_verdict(
+    cost: Mapping[str, Any],
+    profile: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Return PASS/BLOCKED when a session exceeds configured turn or context limits."""
+    profile = profile or {}
+    max_turns = int(profile.get("budget_max_turns") or SESSION_MAX_ASSISTANT_TURNS)
+    max_bytes = int(profile.get("budget_max_context_bytes") or SESSION_MAX_CONTEXT_BYTES)
+    turns = int(cost.get("main_assistant_turns") or 0)
+    context_bytes = int(cost.get("context_bytes") or 0)
+    reasons: List[str] = []
+    if turns > max_turns:
+        reasons.append("session-budget-exceeded-turns")
+    if context_bytes > max_bytes:
+        reasons.append("session-budget-exceeded-context")
+    status = STATUS_PASS if not reasons else STATUS_BLOCKED
+    return {
+        "status": status,
+        "reasons": reasons,
+        "main_assistant_turns": turns,
+        "context_bytes": context_bytes,
+        "max_turns": max_turns,
+        "max_context_bytes": max_bytes,
+    }
 
 
 def compact_runtime_state(index: Dict[str, Any]) -> Dict[str, Any]:

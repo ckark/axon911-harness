@@ -300,6 +300,6 @@ def revalidate_evidence(
         after_hash = str(found[EVIDENCE_AFTER].get("artifact_hash") or "")
         before_capture = str(found[EVIDENCE_BEFORE].get("capture_id") or "")
         after_capture = str(found[EVIDENCE_AFTER].get("capture_id") or "")
-        if before_hash and before_hash == after_hash and before_capture == after_capture:
+        if before_hash and before_hash == after_hash:
             errors.append("before-after-capture-not-distinct")
     return errors

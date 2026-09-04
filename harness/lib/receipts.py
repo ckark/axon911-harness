@@ -454,6 +454,23 @@ def evaluate_gate(
         if not review_ok:
             categories["missing"].append("review.%s" % expected_tier)
 
+    needs_visual_acceptance = bool(profile.get("strict")) and any(
+        ".migration-evidence." in item or item.endswith(".rendered-evidence.before-after")
+        for item in required_obligation_ids
+    )
+    if needs_visual_acceptance:
+        from .visual_acceptance import visual_acceptance_satisfied
+
+        if not visual_acceptance_satisfied(
+            state,
+            root,
+            worktree_id,
+            fingerprint,
+            expected_plan,
+            expected_context,
+        ):
+            categories["missing"].append("visual.acceptance")
+
     blocked = any(categories[key] for key in categories)
     recovery = build_recovery(categories, expected_plan)
     if blocked:

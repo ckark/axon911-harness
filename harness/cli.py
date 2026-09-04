@@ -105,10 +105,16 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
     parser.add_argument("--root", required=True)
     parser.add_argument("--plan-hash", required=True)
     parser.add_argument("--tier", default="T0")
-    parser.add_argument("--scope", action="append", default=[])
+    parser.add_argument("--scope", action="append", default=[], help="Allowed path globs")
+    parser.add_argument("--required-path", action="append", default=[], help="Required path globs")
+    parser.add_argument("--target-root", action="append", default=[], help="Target repository roots")
     parser.add_argument("--base-oid", default="")
     parser.add_argument("--mirror-intent", default="")
     parser.add_argument("--path-surface", action="append", default=[])
+    parser.add_argument("--evidence-manifest", default="", help="Path to migration evidence manifest JSON")
+    parser.add_argument("--strict", action="store_true", help="Require full execution manifest fields")
+    parser.add_argument("--budget-max-turns", type=int, default=0)
+    parser.add_argument("--budget-max-context-bytes", type=int, default=0)
     args = parser.parse_args(argv)
     root_path = resolve_cli_root(args.root)
     current = snapshot(args.root, root_path, plan_hash=args.plan_hash, plan_context_hash="")
@@ -127,18 +133,30 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
     from lib.conformance import normalize_scope
 
     scope = normalize_scope(args.scope)
-    if scope or args.base_oid or mirror_intent or path_surfaces:
-        register_plan_profile(
-            args.root,
-            current["worktree_id"],
-            current["fingerprint"],
-            args.plan_hash,
-            args.tier,
-            scope,
-            args.base_oid,
-            mirror_intent,
-            path_surfaces,
-        )
+    required_paths = normalize_scope(args.required_path)
+    target_roots = normalize_scope(args.target_root)
+    if scope or args.base_oid or mirror_intent or path_surfaces or args.strict:
+        try:
+            register_plan_profile(
+                args.root,
+                current["worktree_id"],
+                current["fingerprint"],
+                args.plan_hash,
+                args.tier,
+                scope,
+                args.base_oid,
+                mirror_intent,
+                path_surfaces,
+                required_paths=required_paths,
+                target_roots=target_roots,
+                evidence_manifest_pointer=args.evidence_manifest,
+                strict=args.strict,
+                budget_max_turns=args.budget_max_turns,
+                budget_max_context_bytes=args.budget_max_context_bytes,
+            )
+        except ValueError as exc:
+            sys.stderr.write("register-plan: %s\n" % exc)
+            return 2
     else:
         register_plan(
             args.root,
@@ -158,6 +176,99 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
                 scope,
             )
     return 0
+
+
+def cmd_capture_ready(argv: Sequence[str]) -> int:
+    """Preflight before baseline or after screenshot capture."""
+    import argparse
+
+    from lib.capture_ready import evaluate_capture_ready
+
+    parser = argparse.ArgumentParser(prog="capture-ready")
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--kind", choices=("before", "after"), default="after")
+    parser.add_argument("--transcript", default="")
+    args = parser.parse_args(argv)
+    root_path = resolve_cli_root(args.root)
+    current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+    result = evaluate_capture_ready(
+        args.root,
+        root_path,
+        current["worktree_id"],
+        current["fingerprint"],
+        kind=args.kind,
+        transcript_path=args.transcript,
+    )
+    json.dump(result, sys.stdout, indent=2)
+    sys.stdout.write("\n")
+    return 0 if result.get("ready") else 1
+
+
+def cmd_budget_check(argv: Sequence[str]) -> int:
+    """Block when a transcript exceeds session turn or context budgets."""
+    import argparse
+
+    from lib.plan_profile import profile_from_state
+    from lib.sessions import budget_verdict, estimate_transcript_cost
+
+    parser = argparse.ArgumentParser(prog="budget-check")
+    parser.add_argument("transcript", help="Path to main thread .jsonl file")
+    parser.add_argument("--root", default="")
+    args = parser.parse_args(argv)
+    profile: dict[str, Any] = {}
+    if args.root:
+        root_path = resolve_cli_root(args.root)
+        current = snapshot(args.root, root_path, plan_hash="", plan_context_hash="")
+        profile = profile_from_state(args.root, current["worktree_id"])
+    cost = estimate_transcript_cost(args.transcript)
+    verdict = budget_verdict(cost, profile)
+    payload = {"cost": cost, "verdict": verdict}
+    json.dump(payload, sys.stdout, indent=2)
+    sys.stdout.write("\n")
+    return 0 if verdict.get("status") == STATUS_PASS else 1
+
+
+def cmd_issue_visual_acceptance(argv: Sequence[str]) -> int:
+    """Issue a visual acceptance receipt from a reviewer report."""
+    import argparse
+
+    from lib.plan_profile import profile_from_state
+    from lib.visual_acceptance import issue_visual_acceptance_receipt
+
+    parser = argparse.ArgumentParser(prog="issue-visual-acceptance-receipt")
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--reviewer-session-id", required=True)
+    parser.add_argument("--authoring-session-id", default="")
+    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--report", required=True)
+    parser.add_argument("--subject-tree-oid", default="")
+    parser.add_argument("--plan-hash", default="")
+    args = parser.parse_args(argv)
+    root_path = resolve_cli_root(args.root)
+    profile = profile_from_state(args.root, snapshot(args.root, root_path)["worktree_id"])
+    plan_hash = args.plan_hash or profile.get("plan_hash") or ""
+    current = snapshot(
+        args.root,
+        root_path,
+        plan_hash=plan_hash,
+        plan_context_hash=profile.get("plan_context_hash") or "",
+    )
+    record = issue_visual_acceptance_receipt(
+        args.root,
+        current["worktree_id"],
+        current["fingerprint"],
+        plan_hash,
+        profile.get("plan_context_hash") or "",
+        reviewer_session_id=args.reviewer_session_id,
+        authoring_session_id=args.authoring_session_id,
+        manifest_pointer=args.manifest,
+        report_path=args.report,
+        subject_tree_oid=args.subject_tree_oid,
+        root_path=root_path,
+    )
+    json.dump(record, sys.stdout, indent=2)
+    sys.stdout.write("\n")
+    return 0 if record.get("status") == STATUS_PASS else 1
 
 
 def cmd_review(argv: Sequence[str]) -> int:
@@ -1114,6 +1225,9 @@ SUBCOMMANDS = {
     "session-status": cmd_session_status,
     "handoff": cmd_handoff,
     "bundle": cmd_bundle,
+    "capture-ready": cmd_capture_ready,
+    "budget-check": cmd_budget_check,
+    "issue-visual-acceptance-receipt": cmd_issue_visual_acceptance,
     "cost": cmd_cost,
 }
 

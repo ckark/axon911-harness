@@ -55,6 +55,13 @@ def plan_context_payload(
     base_oid: str,
     mirror_intent: str,
     path_surfaces: Mapping[str, str],
+    *,
+    required_paths: Sequence[str] = (),
+    target_roots: Sequence[str] = (),
+    evidence_manifest_pointer: str = "",
+    strict: bool = False,
+    budget_max_turns: int = 0,
+    budget_max_context_bytes: int = 0,
 ) -> Dict[str, Any]:
     """Canonical payload hashed into fingerprints and receipt binding."""
     surfaces = {
@@ -65,9 +72,15 @@ def plan_context_payload(
     return {
         "plan_hash": plan_hash,
         "scope": normalize_scope(list(scope)),
+        "required_paths": normalize_scope(list(required_paths)),
+        "target_roots": normalize_scope(list(target_roots)),
         "base_oid": base_oid.strip(),
         "mirror_intent": mirror_intent.strip(),
         "path_surfaces": surfaces,
+        "evidence_manifest_pointer": evidence_manifest_pointer.strip(),
+        "strict": bool(strict),
+        "budget_max_turns": int(budget_max_turns or 0),
+        "budget_max_context_bytes": int(budget_max_context_bytes or 0),
     }
 
 
@@ -77,10 +90,41 @@ def plan_context_hash(
     base_oid: str,
     mirror_intent: str,
     path_surfaces: Mapping[str, str],
+    **kwargs: Any,
 ) -> str:
-    payload = plan_context_payload(plan_hash, scope, base_oid, mirror_intent, path_surfaces)
+    payload = plan_context_payload(
+        plan_hash,
+        scope,
+        base_oid,
+        mirror_intent,
+        path_surfaces,
+        **kwargs,
+    )
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def validate_strict_profile(
+    *,
+    scope: Sequence[str],
+    base_oid: str,
+    tier: str,
+    strict: bool,
+    evidence_manifest_pointer: str = "",
+) -> List[str]:
+    """Return plan-contract defects for a strict execution manifest."""
+    errors: List[str] = []
+    if not strict:
+        return errors
+    if not normalize_scope(list(scope)):
+        errors.append("strict-profile-missing-allowed-paths")
+    if not base_oid.strip():
+        errors.append("strict-profile-missing-base-oid")
+    if tier not in ("T0", "T1", "T2"):
+        errors.append("strict-profile-invalid-tier")
+    if not evidence_manifest_pointer.strip():
+        errors.append("strict-profile-missing-evidence-manifest")
+    return errors
 
 
 def register_plan_profile(
@@ -94,10 +138,38 @@ def register_plan_profile(
     mirror_intent: str,
     path_surfaces: Mapping[str, str],
     session_id: str = "",
+    *,
+    required_paths: Sequence[str] = (),
+    target_roots: Sequence[str] = (),
+    evidence_manifest_pointer: str = "",
+    strict: bool = False,
+    budget_max_turns: int = 0,
+    budget_max_context_bytes: int = 0,
     base: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Persist one atomic plan profile and clear stale scope records."""
-    context = plan_context_hash(plan_hash, scope, base_oid, mirror_intent, path_surfaces)
+    profile_errors = validate_strict_profile(
+        scope=scope,
+        base_oid=base_oid,
+        tier=tier,
+        strict=strict,
+        evidence_manifest_pointer=evidence_manifest_pointer,
+    )
+    if profile_errors:
+        raise ValueError("; ".join(profile_errors))
+    context = plan_context_hash(
+        plan_hash,
+        scope,
+        base_oid,
+        mirror_intent,
+        path_surfaces,
+        required_paths=required_paths,
+        target_roots=target_roots,
+        evidence_manifest_pointer=evidence_manifest_pointer,
+        strict=strict,
+        budget_max_turns=budget_max_turns,
+        budget_max_context_bytes=budget_max_context_bytes,
+    )
     return append_record(
         {
             "kind": "plan_profile",
@@ -108,6 +180,8 @@ def register_plan_profile(
             "plan_hash": plan_hash,
             "tier": tier,
             "scope": normalize_scope(list(scope)),
+            "required_paths": normalize_scope(list(required_paths)),
+            "target_roots": normalize_scope(list(target_roots)),
             "base_oid": base_oid.strip(),
             "mirror_intent": mirror_intent.strip(),
             "path_surfaces": {
@@ -115,6 +189,10 @@ def register_plan_profile(
                 for key, value in path_surfaces.items()
                 if str(key).strip() and str(value).strip()
             },
+            "evidence_manifest_pointer": evidence_manifest_pointer.strip(),
+            "strict": bool(strict),
+            "budget_max_turns": int(budget_max_turns or 0),
+            "budget_max_context_bytes": int(budget_max_context_bytes or 0),
             "plan_context_hash": context,
             "obligation_id": "plan",
             "status": STATUS_PASS,
@@ -134,19 +212,48 @@ def active_profile(state: Mapping[str, Any], root: str, worktree_id: str) -> Dic
     plan_hash = str(found.get("plan_hash") or plan_entry.get("plan_hash") or "")
     tier = str(found.get("tier") or plan_entry.get("tier") or "T0")
     scope = list(found.get("scope") or scope_entry.get("scope") or [])
+    required_paths = list(found.get("required_paths") or [])
+    target_roots = list(found.get("target_roots") or [])
     base_oid = str(found.get("base_oid") or "")
     mirror_intent = str(found.get("mirror_intent") or "")
     path_surfaces = dict(found.get("path_surfaces") or {})
+    evidence_manifest_pointer = str(found.get("evidence_manifest_pointer") or "")
+    strict = bool(found.get("strict"))
+    budget_max_turns = int(found.get("budget_max_turns") or 0)
+    budget_max_context_bytes = int(found.get("budget_max_context_bytes") or 0)
     context = str(found.get("plan_context_hash") or "")
     if plan_hash and not context:
-        context = plan_context_hash(plan_hash, scope, base_oid, mirror_intent, path_surfaces)
+        context = plan_context_hash(
+            plan_hash,
+            scope,
+            base_oid,
+            mirror_intent,
+            path_surfaces,
+            required_paths=required_paths,
+            target_roots=target_roots,
+            evidence_manifest_pointer=evidence_manifest_pointer,
+            strict=strict,
+            budget_max_turns=budget_max_turns,
+            budget_max_context_bytes=budget_max_context_bytes,
+        )
+    migration_manifests = state.get("migration_manifests") or {}
+    manifest_entry = migration_manifests.get("%s:%s" % (root, worktree_id)) or {}
+    if not evidence_manifest_pointer:
+        evidence_manifest_pointer = str(manifest_entry.get("pointer") or "")
     return {
         "plan_hash": plan_hash,
         "tier": tier,
         "scope": scope,
+        "required_paths": required_paths,
+        "target_roots": target_roots,
         "base_oid": base_oid,
         "mirror_intent": mirror_intent,
         "path_surfaces": path_surfaces,
+        "evidence_manifest_pointer": evidence_manifest_pointer,
+        "migration_manifest_pointer": str(manifest_entry.get("pointer") or ""),
+        "strict": strict,
+        "budget_max_turns": budget_max_turns,
+        "budget_max_context_bytes": budget_max_context_bytes,
         "plan_context_hash": context,
         "profiled": bool(found),
     }

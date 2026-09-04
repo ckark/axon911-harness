@@ -159,6 +159,11 @@ def revalidate_migration_manifest(
     base_oid: str = "",
     fingerprint: str = "",
     active_plan_hash: str = "",
+    *,
+    require_hosted_urls: bool = True,
+    repo_path: str = "",
+    changed_paths: Optional[Sequence[str]] = None,
+    require_resolved_commit_sha: bool = False,
 ) -> Sequence[str]:
     errors = list(validate_manifest_shape(manifest))
     if active_plan_hash and str(manifest.get("plan_hash") or "") != active_plan_hash:
@@ -208,6 +213,8 @@ def revalidate_migration_manifest(
                                 source_sha=str(record.get("source_sha") or ""),
                                 role=kind,
                                 capture=capture,
+                                require_resolved_commit_sha=require_resolved_commit_sha,
+                                repo_path=repo_path,
                             )
                         )
                     except (OSError, ValueError) as exc:
@@ -224,15 +231,23 @@ def revalidate_migration_manifest(
             before_hash
             and after_hash
             and before_hash == after_hash
-            and before_capture == after_capture
             and str(item.get("expected_visual_result") or "") != "unchanged"
         ):
             errors.append("before-after-hash-identical:%s" % change_id)
         errors.extend(_url_binding_errors(item, found))
-        before_url = str(item.get("before_url") or "")
-        after_url = str(item.get("after_url") or "")
-        if not before_url or not after_url:
-            errors.append("missing-hosted-url:%s" % change_id)
+        if require_hosted_urls:
+            before_url = str(item.get("before_url") or "")
+            after_url = str(item.get("after_url") or "")
+            if not before_url or not after_url:
+                errors.append("missing-hosted-url:%s" % change_id)
+        source_paths = item.get("source_paths")
+        if isinstance(source_paths, list) and changed_paths is not None:
+            from .conformance import _matches
+
+            for source_path in source_paths:
+                normalized = str(source_path).replace(os.sep, "/")
+                if not any(_matches(changed, [normalized]) for changed in changed_paths):
+                    errors.append("manifest-source-path-not-in-diff:%s:%s" % (change_id, normalized))
     return errors
 
 

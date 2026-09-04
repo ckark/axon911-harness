@@ -7,7 +7,20 @@ import json
 import os
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from .git_subject import is_commit_oid
 from .media_validation import validate_image_artifact
+
+
+def is_plausible_commit_sha(value: str) -> bool:
+    """Return True when `value` looks like a Git commit object name."""
+    cleaned = value.strip().lower()
+    if len(cleaned) < 7 or len(cleaned) > 40:
+        return False
+    try:
+        int(cleaned, 16)
+    except ValueError:
+        return False
+    return True
 
 CAPTURE_PRODUCER = "prepared911-harness/storybook-capture"
 CAPTURE_RECEIPT_VERSION = 2
@@ -113,6 +126,8 @@ def validate_capture_receipt_binding(
     source_sha: str = "",
     role: str = "",
     capture: Optional[Mapping[str, str]] = None,
+    require_resolved_commit_sha: bool = False,
+    repo_path: str = "",
 ) -> List[str]:
     """Validate receipt against artifact bytes and expected capture metadata."""
     errors = list(validate_capture_receipt_shape(receipt))
@@ -134,8 +149,14 @@ def validate_capture_receipt_binding(
         errors.append("capture-receipt-mime-mismatch")
     if int(receipt.get("width") or 0) != width or int(receipt.get("height") or 0) != height:
         errors.append("capture-receipt-dimension-mismatch")
-    if source_sha and str(receipt.get("source_sha") or "") != source_sha:
+    receipt_source = str(receipt.get("source_sha") or "")
+    if source_sha and receipt_source != source_sha:
         errors.append("capture-receipt-source-sha-mismatch")
+    if receipt_source and not is_plausible_commit_sha(receipt_source):
+        errors.append("capture-receipt-invalid-source-sha")
+    if require_resolved_commit_sha and receipt_source:
+        if not is_commit_oid(receipt_source, repo_path):
+            errors.append("capture-receipt-unresolved-source-sha")
     if role and str(receipt.get("role") or "") != role:
         errors.append("capture-receipt-role-mismatch")
     if capture:

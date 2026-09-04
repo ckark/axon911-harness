@@ -35,11 +35,14 @@ def write_capture_receipt(
     artifact_path: str,
     *,
     capture: Mapping[str, str],
-    source_sha: str = "abc123",
+    source_sha: str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     role: str = "before",
 ) -> Dict[str, Any]:
     import hashlib
 
+    from lib.media_validation import validate_image_artifact
+
+    mime, width, height = validate_image_artifact(artifact_path)
     digest = hashlib.sha256()
     with open(artifact_path, "rb") as handle:
         while True:
@@ -62,9 +65,9 @@ def write_capture_receipt(
         "viewport": capture.get("viewport", "1280x720"),
         "state": capture.get("state", "default"),
         "target_selector": "#storybook-root",
-        "mime": "image/png",
-        "width": 128,
-        "height": 128,
+        "mime": mime,
+        "width": width,
+        "height": height,
         "timestamp": "2026-09-03T00:00:00Z",
         "health": {
             "storybook_ready": True,

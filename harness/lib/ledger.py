@@ -224,7 +224,7 @@ def _apply_record_to_index(index: Dict[str, Any], record: Mapping[str, Any]) -> 
     kind = record.get("kind")
     key = "%s:%s:%s" % (record.get("root"), record.get("worktree_id"), record.get("fingerprint"))
     receipts = index.setdefault("receipts", {})
-    if kind in ("verification_receipt", "review_receipt"):
+    if kind in ("verification_receipt", "review_receipt", "visual_acceptance_receipt"):
         receipts.setdefault(key, [])
         receipts[key] = [
             item
@@ -245,9 +245,15 @@ def _apply_record_to_index(index: Dict[str, Any], record: Mapping[str, Any]) -> 
             "plan_hash": record.get("plan_hash") or "",
             "tier": record.get("tier") or "T0",
             "scope": list(record.get("scope") or []),
+            "required_paths": list(record.get("required_paths") or []),
+            "target_roots": list(record.get("target_roots") or []),
             "base_oid": record.get("base_oid") or "",
             "mirror_intent": record.get("mirror_intent") or "",
             "path_surfaces": dict(record.get("path_surfaces") or {}),
+            "evidence_manifest_pointer": record.get("evidence_manifest_pointer") or "",
+            "strict": bool(record.get("strict")),
+            "budget_max_turns": int(record.get("budget_max_turns") or 0),
+            "budget_max_context_bytes": int(record.get("budget_max_context_bytes") or 0),
             "plan_context_hash": record.get("plan_context_hash") or "",
             "ts": record.get("ts"),
         }

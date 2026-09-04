@@ -18,6 +18,8 @@ SEGMENT_MAX_BYTES = 10 * 1024 * 1024
 SEGMENT_MAX_AGE_S = 7 * 24 * 60 * 60
 RETENTION_S = 30 * 24 * 60 * 60
 STOP_LOOP_LIMIT = 3
+SESSION_MAX_ASSISTANT_TURNS = 60
+SESSION_MAX_CONTEXT_BYTES = 320_000
 # axon911-frontend first: it owns @prepared/ui-* post CORE-754 and is the
 # architectural authority for the Axon 911 ecosystem. Membership is what the
 # code checks; the order documents precedence for readers.
@@ -80,6 +82,18 @@ ALLOWED_PERSISTED_FIELDS = (
     "prev_hash",
     "receipt_id",
     "nonce",
+    "required_paths",
+    "target_roots",
+    "strict",
+    "budget_max_turns",
+    "budget_max_context_bytes",
+    "evidence_manifest_pointer",
+    "subject_tree_oid",
+    "manifest_hash",
+    "report_path",
+    "report_hash",
+    "authoring_session_id",
+    "validation_errors",
 )
 STATUS_PASS = "PASS"
 STATUS_BLOCKED = "BLOCKED"
