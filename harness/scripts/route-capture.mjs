@@ -19,7 +19,12 @@ if (!playwrightRoot) {
 }
 
 const require = createRequire(path.join(playwrightRoot, "package.json"));
-const { chromium } = require("playwright");
+let chromium;
+try {
+  ({ chromium } = require("playwright"));
+} catch {
+  ({ chromium } = require("@playwright/test"));
+}
 
 function parseViewport(raw) {
   const match = String(raw || "1280x720").match(/^(\d+)x(\d+)$/);

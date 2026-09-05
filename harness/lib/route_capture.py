@@ -27,7 +27,9 @@ def _find_playwright_root(product_root: str) -> str:
         os.path.join(product_root, "apps", "automation"),
     ]
     for candidate in candidates:
-        if os.path.isdir(os.path.join(candidate, "node_modules", "playwright")):
+        if os.path.exists(os.path.join(candidate, "node_modules", "playwright", "package.json")):
+            return candidate
+        if os.path.exists(os.path.join(candidate, "node_modules", "@playwright", "test", "package.json")):
             return candidate
     raise RouteCaptureError("playwright not found under product root")
 
