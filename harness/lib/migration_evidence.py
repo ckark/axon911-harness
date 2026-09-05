@@ -50,7 +50,10 @@ class MigrationManifest(TypedDict, total=False):
     changes: List[ChangeSpec]
 
 
-REQUIRED_CAPTURE_KEYS = ("story_id", "theme", "brand", "viewport", "state")
+REQUIRED_STORYBOOK_CAPTURE_KEYS = ("story_id", "theme", "brand", "viewport", "state")
+REQUIRED_ROUTE_CAPTURE_KEYS = ("route", "entrypoint", "scenario_id", "theme", "brand", "viewport", "state")
+CAPTURE_KINDS = ("storybook", "product-route", "not-applicable")
+EVIDENCE_STATES = ("changed", "expected_unchanged", "new_visible", "static_only")
 CURSOR_SUMMARY_MARKER = "<!-- CURSOR_SUMMARY"
 
 
@@ -99,11 +102,20 @@ def validate_manifest_shape(manifest: Mapping[str, Any]) -> List[str]:
         source_paths = item.get("source_paths")
         if not isinstance(source_paths, list) or not source_paths:
             errors.append("manifest-change-%s-missing-source-paths" % change_id)
+        evidence_state = str(item.get("evidence_state") or "changed").strip()
+        if evidence_state not in EVIDENCE_STATES:
+            errors.append("manifest-change-%s-invalid-evidence-state" % change_id)
+        capture_kind = str(item.get("capture_kind") or "storybook").strip()
+        if capture_kind not in CAPTURE_KINDS:
+            errors.append("manifest-change-%s-invalid-capture-kind" % change_id)
+        if capture_kind == "not-applicable":
+            continue
         capture = item.get("capture")
         if not isinstance(capture, dict):
             errors.append("manifest-change-%s-missing-capture" % change_id)
             continue
-        for key in REQUIRED_CAPTURE_KEYS:
+        required_keys = REQUIRED_STORYBOOK_CAPTURE_KEYS if capture_kind == "storybook" else REQUIRED_ROUTE_CAPTURE_KEYS
+        for key in required_keys:
             if not str(capture.get(key) or "").strip():
                 errors.append("manifest-change-%s-missing-capture-%s" % (change_id, key))
     return errors
@@ -116,14 +128,25 @@ def obligation_id_for_change(root: str, change_id: str) -> str:
 def migration_obligation_ids(root: str, manifest: Mapping[str, Any]) -> List[str]:
     ids: List[str] = []
     for item in manifest.get("changes") or []:
-        if isinstance(item, dict) and item.get("change_id"):
-            ids.append(obligation_id_for_change(root, str(item["change_id"])))
+        if not isinstance(item, dict) or not item.get("change_id"):
+            continue
+        item_root = str(item.get("root") or "prepared911")
+        if item_root != root:
+            continue
+        if str(item.get("capture_kind") or "") == "not-applicable":
+            continue
+        ids.append(obligation_id_for_change(root, str(item["change_id"])))
     return sorted(ids)
 
 
-def _capture_matches(record: Mapping[str, Any], capture: Mapping[str, Any]) -> bool:
-    for key in REQUIRED_CAPTURE_KEYS:
-        if str(record.get("capture_%s" % key) or "") != str(capture.get(key) or ""):
+def _capture_matches(record: Mapping[str, Any], capture: Mapping[str, Any], capture_kind: str) -> bool:
+    keys = REQUIRED_STORYBOOK_CAPTURE_KEYS if capture_kind == "storybook" else REQUIRED_ROUTE_CAPTURE_KEYS
+    for key in keys:
+        field = "capture_%s" % key
+        if field in record:
+            if str(record.get(field) or "") != str(capture.get(key) or ""):
+                return False
+        elif key in capture and str(record.get(key) or "") != str(capture.get(key) or ""):
             return False
     return True
 
@@ -164,6 +187,7 @@ def revalidate_migration_manifest(
     repo_path: str = "",
     changed_paths: Optional[Sequence[str]] = None,
     require_resolved_commit_sha: bool = False,
+    require_v4_provenance: bool = False,
     require_v3_provenance: bool = False,
 ) -> Sequence[str]:
     errors = list(validate_manifest_shape(manifest))
@@ -178,8 +202,15 @@ def revalidate_migration_manifest(
         change_id = str(item["change_id"])
         obligation_id = obligation_id_for_change(root, change_id)
         found = matching_evidence(state, root, worktree_id, obligation_id, plan_context_hash)
+        evidence_state = str(item.get("evidence_state") or "changed")
+        capture_kind = str(item.get("capture_kind") or "storybook")
+        if capture_kind == "not-applicable" or evidence_state == "static_only":
+            continue
+        required_kinds = [EVIDENCE_BEFORE, EVIDENCE_AFTER]
+        if evidence_state == "new_visible":
+            required_kinds = [EVIDENCE_AFTER]
         capture = item.get("capture") or {}
-        for kind in (EVIDENCE_BEFORE, EVIDENCE_AFTER):
+        for kind in required_kinds:
             record = found.get(kind)
             if not record:
                 errors.append("missing-%s-evidence:%s" % (kind, change_id))
@@ -189,7 +220,7 @@ def revalidate_migration_manifest(
                 errors.append("before-evidence-base-mismatch:%s" % change_id)
             if kind == EVIDENCE_AFTER and fingerprint and record.get("fingerprint") != fingerprint:
                 errors.append("after-evidence-fingerprint-mismatch:%s" % change_id)
-            if not _capture_matches(record, capture):
+            if not _capture_matches(record, capture, str(item.get("capture_kind") or "storybook")):
                 errors.append("capture-metadata-mismatch:%s:%s" % (change_id, kind))
             try:
                 digest, size = validate_artifact(root_path, pointer)
@@ -221,6 +252,7 @@ def revalidate_migration_manifest(
                                 role=kind,
                                 capture=capture,
                                 require_resolved_commit_sha=require_resolved_commit_sha,
+                                require_v4=require_v4_provenance,
                                 require_v3=require_v3_provenance,
                                 repo_path=repo_path or root_path,
                                 expected_manifest_hash=manifest_hash if require_v3_provenance else "",
@@ -294,6 +326,7 @@ def _render_change_section(
     change_id = str(item.get("change_id") or "")
     title = str(item.get("title") or change_id)
     capture = item.get("capture") or {}
+    capture_kind = str(item.get("capture_kind") or "storybook")
     urls = attachment_urls or {}
     before = (urls.get(change_id) or {}).get("before") or str(item.get("before_url") or "")
     after = (urls.get(change_id) or {}).get("after") or str(item.get("after_url") or "")
@@ -322,20 +355,38 @@ def _render_change_section(
         raise ValueError("missing after URL for %s" % change_id)
     else:
         lines.append("_After image pending_")
-    lines.extend(
-        [
-            "",
-            "_Capture:_ story `%s`, theme `%s`, brand `%s`, viewport `%s`, state `%s`."
-            % (
-                capture.get("story_id", ""),
-                capture.get("theme", ""),
-                capture.get("brand", ""),
-                capture.get("viewport", ""),
-                capture.get("state", ""),
-            ),
-            "",
-        ]
-    )
+    if capture_kind == "product-route":
+        lines.extend(
+            [
+                "",
+                "_Capture:_ route `%s`, entrypoint `%s`, scenario `%s`, theme `%s`, brand `%s`, viewport `%s`, state `%s`."
+                % (
+                    capture.get("route", ""),
+                    capture.get("entrypoint", ""),
+                    capture.get("scenario_id", ""),
+                    capture.get("theme", ""),
+                    capture.get("brand", ""),
+                    capture.get("viewport", ""),
+                    capture.get("state", ""),
+                ),
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                "_Capture:_ story `%s`, theme `%s`, brand `%s`, viewport `%s`, state `%s`."
+                % (
+                    capture.get("story_id", ""),
+                    capture.get("theme", ""),
+                    capture.get("brand", ""),
+                    capture.get("viewport", ""),
+                    capture.get("state", ""),
+                ),
+                "",
+            ]
+        )
     if base_sha or head_sha:
         lines.append("_Source SHAs:_ base `%s`, head `%s`." % (base_sha, head_sha))
         lines.append("")

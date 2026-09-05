@@ -206,10 +206,18 @@ Before a screenshot campaign, `capture-ready` (alias `execution-preflight`) chec
 the strict execution manifest, scope conformance, nonvisual verification receipts,
 final staged subject tree, migration manifest coverage, and session budget.
 
-Capture receipts (v3) bind artifact bytes to `source_sha`, `source_tree`,
-`manifest_hash`, `change_id`, `content_origin`, `capture_scope`, clip bounds, and
-DOM assertion results. Capture health receipts prove render readiness only; they
-do not substitute for visual acceptance.
+Capture receipts (v4) are a strict union of `storybook`, `product-route`, and
+`not-applicable`. Executable receipts bind artifact bytes to `source_sha`,
+`source_tree`, `manifest_hash`, `change_id`, `content_origin`, `capture_scope`,
+clip bounds, DOM assertion results, role-exclusive process identity, and the
+exact story or route scenario. Versions 2 and 3 fail closed. Capture health
+receipts prove render readiness only; they do not substitute for visual
+acceptance.
+
+The verifier rederives commit and tree OIDs from Git and recomputes receipt and
+artifact hashes. A Before must match the execution-pinned trunk; an After must
+match the exact PR head and prove that a changed production path produced the
+asserted migration state.
 
 User-visible migration work requires one fresh-context visual acceptance receipt
 (`visual.acceptance`) issued by a reviewer session distinct from the authoring

@@ -143,6 +143,14 @@ are untouched, nonvisual verification receipts are missing, the after subject
 tree is not final, manifest coverage does not match the diff, or the session is
 over budget.
 
+Definitive captures use schema v4 receipts. Storybook receipts bind an exact
+committed product story; product-route receipts bind an exact product
+entrypoint, route, scenario adapter, and migration-state assertion.
+`not-applicable` rows produce no image or attachment slot. Both executable
+capture kinds rederive the source commit and tree from Git, require a clean
+normal checkout, and reject opposite-role cache, process, module, stylesheet,
+or artifact reuse.
+
 ## Rendered evidence for anything a user sees
 
 Anything an operator or user sees rendered — UI components, docs pages, modal

@@ -23,8 +23,9 @@ def is_plausible_commit_sha(value: str) -> bool:
     return True
 
 CAPTURE_PRODUCER = "prepared911-harness/storybook-capture"
-CAPTURE_RECEIPT_VERSION = 3
-SUPPORTED_RECEIPT_VERSIONS = (2, 3)
+CAPTURE_RECEIPT_VERSION = 4
+SUPPORTED_RECEIPT_VERSIONS = (4,)
+CAPTURE_KINDS = ("storybook", "product-route", "not-applicable")
 
 CONTENT_ORIGINS = ("product", "synthetic")
 CAPTURE_SCOPES = ("contextual", "isolated")
@@ -51,16 +52,9 @@ REQUIRED_RECEIPT_KEYS = (
     "health",
 )
 
-REQUIRED_V3_KEYS = (
-    "source_tree",
-    "source_clean",
-    "manifest_hash",
-    "change_id",
-    "content_origin",
-    "capture_scope",
-    "clip_selector",
-    "clip_bounds",
-    "dom_assertions",
+REQUIRED_V4_KEYS = (
+    "capture_kind",
+    "server_port",
 )
 
 REQUIRED_HEALTH_KEYS = (
@@ -97,9 +91,37 @@ def load_capture_receipt(path: str) -> Dict[str, Any]:
 
 def validate_capture_receipt_shape(receipt: Mapping[str, Any]) -> List[str]:
     errors: List[str] = []
-    for key in REQUIRED_RECEIPT_KEYS:
+    version = int(receipt.get("version") or 0)
+    if version not in SUPPORTED_RECEIPT_VERSIONS:
+        errors.append("capture-receipt-version-mismatch")
+        return errors
+    base_keys = (
+        "version",
+        "capture_id",
+        "producer",
+        "source_sha",
+        "role",
+        "artifact_path",
+        "artifact_hash",
+        "mime",
+        "width",
+        "height",
+        "timestamp",
+        "health",
+        "capture_kind",
+    )
+    for key in base_keys:
         if key not in receipt or receipt.get(key) in ("", None):
             errors.append("capture-receipt-missing-%s" % key)
+    capture_kind = str(receipt.get("capture_kind") or "")
+    if capture_kind == "storybook":
+        for key in ("story_id", "story_url", "theme", "brand", "viewport", "state", "target_selector"):
+            if key not in receipt or receipt.get(key) in ("", None):
+                errors.append("capture-receipt-missing-%s" % key)
+    elif capture_kind == "product-route":
+        for key in ("route", "entrypoint", "theme", "brand", "viewport", "state", "target_selector"):
+            if key not in receipt or receipt.get(key) in ("", None):
+                errors.append("capture-receipt-missing-%s" % key)
     health = receipt.get("health")
     if not isinstance(health, dict):
         errors.append("capture-receipt-missing-health")
@@ -109,15 +131,13 @@ def validate_capture_receipt_shape(receipt: Mapping[str, Any]) -> List[str]:
             errors.append("capture-receipt-missing-health-%s" % key)
     if str(receipt.get("producer") or "") != CAPTURE_PRODUCER:
         errors.append("capture-receipt-invalid-producer")
-    version = int(receipt.get("version") or 0)
-    if version not in SUPPORTED_RECEIPT_VERSIONS:
-        errors.append("capture-receipt-version-mismatch")
     return errors
 
 
 def validate_capture_receipt_provenance(
     receipt: Mapping[str, Any],
     *,
+    require_v4: bool = False,
     require_v3: bool = False,
     expected_manifest_hash: str = "",
     expected_change_id: str = "",
@@ -125,19 +145,39 @@ def validate_capture_receipt_provenance(
     expected_capture_scope: str = "",
     repo_path: str = "",
 ) -> List[str]:
-    """Validate v3 provenance and DOM assertion fields."""
+    """Validate v4 provenance and DOM assertion fields."""
     errors: List[str] = []
     version = int(receipt.get("version") or 0)
-    if version < 3 and require_v3:
-        errors.append("capture-receipt-requires-v3")
+    if version < 4 and (require_v4 or require_v3):
+        errors.append("capture-receipt-legacy-version-rejected")
         return errors
-    if version < 3:
+    if version < 4:
         return errors
-    for key in REQUIRED_V3_KEYS:
-        if key not in receipt or receipt.get(key) in ("", None):
+    for key in (
+        "source_tree",
+        "source_clean",
+        "manifest_hash",
+        "change_id",
+        "content_origin",
+        "capture_scope",
+        "clip_selector",
+        "clip_bounds",
+        "dom_assertions",
+    ):
+        if key not in receipt:
             if key == "dom_assertions" and isinstance(receipt.get("dom_assertions"), list):
                 continue
             errors.append("capture-receipt-missing-%s" % key)
+    for key in REQUIRED_V4_KEYS:
+        if key not in receipt or receipt.get(key) in ("", None):
+            errors.append("capture-receipt-missing-%s" % key)
+    capture_kind = str(receipt.get("capture_kind") or "")
+    if capture_kind not in CAPTURE_KINDS:
+        errors.append("capture-receipt-invalid-capture-kind")
+    if capture_kind == "storybook" and not str(receipt.get("story_id") or "").strip():
+        errors.append("capture-receipt-missing-story-id")
+    if capture_kind == "product-route" and not str(receipt.get("route") or "").strip():
+        errors.append("capture-receipt-missing-route")
     content_origin = str(receipt.get("content_origin") or "")
     capture_scope = str(receipt.get("capture_scope") or "")
     if content_origin and content_origin not in CONTENT_ORIGINS:
@@ -153,8 +193,15 @@ def validate_capture_receipt_provenance(
     if expected_change_id and str(receipt.get("change_id") or "") != expected_change_id:
         errors.append("capture-receipt-change-id-mismatch")
     source_tree = str(receipt.get("source_tree") or "")
-    if source_tree and not is_plausible_commit_sha(source_tree):
-        errors.append("capture-receipt-invalid-source-tree")
+    if source_tree:
+        if len(source_tree) != 40:
+            errors.append("capture-receipt-invalid-source-tree")
+        elif repo_path:
+            from .git_subject import tree_oid_at_commit
+
+            expected_tree = tree_oid_at_commit(repo_path, str(receipt.get("source_sha") or ""))
+            if expected_tree and expected_tree != source_tree:
+                errors.append("capture-receipt-source-tree-mismatch")
     if receipt.get("source_clean") is False and str(receipt.get("role") or "") == "after":
         errors.append("capture-receipt-dirty-after-source")
     dom_assertions = receipt.get("dom_assertions")
@@ -218,6 +265,7 @@ def validate_capture_receipt_binding(
     role: str = "",
     capture: Optional[Mapping[str, str]] = None,
     require_resolved_commit_sha: bool = False,
+    require_v4: bool = False,
     require_v3: bool = False,
     repo_path: str = "",
     expected_manifest_hash: str = "",
@@ -230,6 +278,7 @@ def validate_capture_receipt_binding(
     errors.extend(
         validate_capture_receipt_provenance(
             receipt,
+            require_v4=require_v4,
             require_v3=require_v3,
             expected_manifest_hash=expected_manifest_hash,
             expected_change_id=expected_change_id,
@@ -267,7 +316,12 @@ def validate_capture_receipt_binding(
     if role and str(receipt.get("role") or "") != role:
         errors.append("capture-receipt-role-mismatch")
     if capture:
-        for key in ("story_id", "theme", "brand", "viewport", "state"):
+        capture_kind = str(receipt.get("capture_kind") or capture.get("capture_kind") or "storybook")
+        if capture_kind == "product-route":
+            keys = ("route", "entrypoint", "scenario_id", "theme", "brand", "viewport", "state")
+        else:
+            keys = ("story_id", "theme", "brand", "viewport", "state")
+        for key in keys:
             if str(receipt.get(key) or "") != str(capture.get(key) or ""):
                 errors.append("capture-receipt-metadata-mismatch:%s" % key)
     return errors

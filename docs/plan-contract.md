@@ -132,6 +132,22 @@ python3 harness/cli.py register-plan --root <root> \
 Changing scope, evidence mode, sequencing, or budgets requires a new manifest
 version; prior receipts bind to the previous `execution_manifest_hash`.
 
+### Definitive evidence manifests
+
+Schema v4 execution plans pair the execution manifest with a checksummed
+migration-evidence manifest. Each row declares one capture kind:
+`storybook`, `product-route`, or `not-applicable`. Each row also declares one
+evidence state: `changed`, `expected_unchanged`, `new_visible`, or
+`static_only`.
+
+- `changed` and `expected_unchanged` require distinct Before and After capture
+  identities.
+- `new_visible` requires machine-checked absence on the baseline and an After.
+- `static_only` uses `not-applicable` and names its verification command.
+
+Every phase declares a positive `max_attempts`. Ref, scope, state, capture-mode,
+required-path, sequence, or budget changes require a superseding manifest.
+
 ## Completeness verdict
 
 A plan is contract-complete only when every required section is present and the

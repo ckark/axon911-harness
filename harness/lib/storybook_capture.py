@@ -31,6 +31,7 @@ class StorybookCaptureError(RuntimeError):
 
 def _find_playwright_root(product_root: str) -> str:
     candidates = [
+        os.path.join(product_root, "apps", "storybook"),
         os.path.join(product_root, "turbo", "apps", "storybook"),
         os.path.join(product_root, "turbo", "apps", "automation"),
     ]
@@ -41,11 +42,17 @@ def _find_playwright_root(product_root: str) -> str:
 
 
 def _storybook_script(product_root: str) -> str:
-    return os.path.join(product_root, "turbo", "apps", "storybook", "package.json")
+    for candidate in (
+        os.path.join(product_root, "apps", "storybook", "package.json"),
+        os.path.join(product_root, "turbo", "apps", "storybook", "package.json"),
+    ):
+        if os.path.isfile(candidate):
+            return candidate
+    raise StorybookCaptureError("storybook app missing under product root")
 
 
 def start_storybook(product_root: str, port: int = DEFAULT_STORYBOOK_PORT) -> subprocess.Popen[Any]:
-    storybook_dir = os.path.join(product_root, "turbo", "apps", "storybook")
+    storybook_dir = os.path.dirname(_storybook_script(product_root))
     if not os.path.isdir(storybook_dir):
         raise StorybookCaptureError("storybook app missing: %s" % storybook_dir)
     log_path = os.path.join(runtime_dir(), "storybook-%s.log" % port)
@@ -176,6 +183,7 @@ def capture_batch(
                 "version": CAPTURE_RECEIPT_VERSION,
                 "capture_id": str(capture.get("capture_id") or uuid.uuid4()),
                 "producer": CAPTURE_PRODUCER,
+                "capture_kind": "storybook",
                 "source_sha": provenance["source_sha"],
                 "source_tree": provenance["source_tree"],
                 "source_clean": provenance["source_clean"],
@@ -184,6 +192,7 @@ def capture_batch(
                 "content_origin": str(capture.get("content_origin") or content_origin),
                 "capture_scope": str(capture.get("capture_scope") or capture_scope),
                 "role": role,
+                "server_port": port,
                 "artifact_path": output_path,
                 "artifact_hash": digest.hexdigest(),
                 "story_id": str(capture.get("story_id") or ""),

@@ -73,6 +73,7 @@ def validate_execution_manifest(
     manifest: Mapping[str, Any],
     *,
     repo_path: str = "",
+    root_paths: Optional[Mapping[str, str]] = None,
 ) -> List[str]:
     """Return validation errors for an execution manifest file."""
     errors: List[str] = []
@@ -98,8 +99,14 @@ def validate_execution_manifest(
         base_oid = str(entry.get("base_oid") or "").strip()
         if not base_oid:
             errors.append("execution-manifest-root-%s-missing-base-oid" % root_id)
-        elif repo_path and not is_commit_oid(base_oid, repo_path):
-            errors.append("execution-manifest-root-%s-invalid-base-oid" % root_id)
+        else:
+            resolved_repo = ""
+            if isinstance(root_paths, Mapping):
+                resolved_repo = str(root_paths.get(root_id) or "").strip()
+            if not resolved_repo:
+                resolved_repo = repo_path
+            if resolved_repo and not is_commit_oid(base_oid, resolved_repo):
+                errors.append("execution-manifest-root-%s-invalid-base-oid" % root_id)
         evidence_states = entry.get("evidence_states")
         if not isinstance(evidence_states, dict) or not evidence_states:
             errors.append("execution-manifest-root-%s-missing-evidence-states" % root_id)

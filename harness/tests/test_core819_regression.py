@@ -86,12 +86,14 @@ class Core819RegressionTests(unittest.TestCase):
 
     def test_row_layout_identical_hash_rejected(self) -> None:
         manifest = {
-            "schema_version": 2,
+            "schema_version": 3,
             "plan_hash": "core819",
             "changes": [
                 {
                     "change_id": "row-layout",
                     "title": "Row layout rhythm",
+                    "evidence_state": "changed",
+                    "capture_kind": "storybook",
                     "source_paths": ["packages/ui-core/src/components/typography/styles.scss"],
                     "capture": self.capture,
                 }

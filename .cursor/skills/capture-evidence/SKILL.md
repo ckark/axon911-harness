@@ -31,8 +31,16 @@ For **migration PRs**, use a per-change manifest and the migration evidence comm
    python3 harness/cli.py capture-ready --root <root> --kind before|after
    ```
 
-1. Author a manifest under `.harness/runtime/evidence/<plan-hash>/manifest.json` with one entry per visually changed consumer or state. Each entry needs `change_id`, `title`, `source_paths`, and `capture` metadata (`story_id`, `theme`, `brand`, `viewport`, `state`).
-2. Capture **Before** on the baseline branch and **After** on the migration branch using the same capture metadata.
+1. Author a schema v4 manifest with one entry per changed consumer or state.
+   Each entry declares `capture_kind` (`storybook`, `product-route`, or
+   `not-applicable`) and `evidence_state` (`changed`, `expected_unchanged`,
+   `new_visible`, or `static_only`). Storybook rows name the exact committed
+   story ID and import path. Product-route rows name the product entrypoint,
+   route, deterministic scenario adapter, and migration-state assertions.
+2. Stop the opposite role's process, clear generated role caches, switch the
+   normal checkout to the exact execution-pinned commit, and prove it clean.
+   Capture **Before** only from pinned live trunk and **After** only from the
+   exact PR head.
 3. Register artifacts:
 
    ```bash
@@ -88,6 +96,12 @@ Embed hosted image URLs in the manifest (`before_url` / `after_url`) when Chroma
 
 - New visible surface → after-state evidence. Changed existing surface →
   before-and-after.
+- `not-applicable` has no image, receipt, or attachment slot; it requires
+  machine-checked baseline absence or static-only verification.
+- Synthetic JSX, CSS, stories, bundles, rendered markup, and fixture injection
+  cannot satisfy a product capture.
+- Every After proves that a changed production path loaded and produced the
+  asserted migration state.
 - Evidence captured against a different fingerprint is stale and does not count;
   editing a file invalidates it, by design.
 - Cross-root evidence does not transfer: an axon screenshot does not satisfy a

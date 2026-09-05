@@ -6,7 +6,12 @@ import os
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from .conformance import UNIMPLEMENTED, UNDECLARED, evaluate_against_base
-from .constants import RECOVERY_COMMAND, STATUS_BLOCKED, STATUS_PASS
+from .constants import (
+    MIGRATION_EVIDENCE_SCHEMA_VERSION,
+    RECOVERY_COMMAND,
+    STATUS_BLOCKED,
+    STATUS_PASS,
+)
 from .evidence import EVIDENCE_AFTER, EVIDENCE_BEFORE
 from .fingerprint import changed_paths
 from .git_subject import head_oid, is_commit_oid, subject_tree_oid, worktree_is_clean
@@ -52,6 +57,8 @@ def evaluate_capture_ready(
             "python3 harness/cli.py register-plan --root %s --manifest execution-manifest.json"
             % root_id
         )
+    if profile.get("strict") and not str(profile.get("execution_manifest_hash") or "").strip():
+        errors.append("missing-execution-manifest-hash")
     if profile.get("strict") and not str(profile.get("base_oid") or "").strip():
         errors.append("missing-base-oid")
     base_oid = str(profile.get("base_oid") or "")
@@ -68,6 +75,8 @@ def evaluate_capture_ready(
             try:
                 manifest = load_manifest(manifest_pointer)
                 errors.extend(validate_manifest_shape(manifest))
+                if int(manifest.get("schema_version") or 0) != MIGRATION_EVIDENCE_SCHEMA_VERSION:
+                    errors.append("legacy-evidence-manifest-rejected")
                 if str(manifest.get("plan_hash") or "") != str(profile.get("plan_hash") or ""):
                     errors.append("manifest-plan-hash-mismatch")
             except (OSError, ValueError) as exc:

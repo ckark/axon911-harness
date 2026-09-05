@@ -6,8 +6,8 @@ FINGERPRINT_VERSION = "2"
 OBLIGATION_SCHEMA_VERSION = "2"
 COMMAND_SPEC_VERSION = "2"
 VERIFIER_VERSION = "2"
-EVIDENCE_SCHEMA_VERSION = "3"
-MIGRATION_EVIDENCE_SCHEMA_VERSION = 2
+EVIDENCE_SCHEMA_VERSION = "4"
+MIGRATION_EVIDENCE_SCHEMA_VERSION = 3
 VISUAL_EVIDENCE_MARKER_START = "<!-- visual-evidence:start"
 VISUAL_EVIDENCE_MARKER_END = "<!-- visual-evidence:end -->"
 GH_ATTACH_MIN_VERSION = (2, 99, 0)
@@ -62,6 +62,10 @@ ALLOWED_PERSISTED_FIELDS = (
     "capture_brand",
     "capture_viewport",
     "capture_state",
+    "capture_route",
+    "capture_entrypoint",
+    "capture_scenario_id",
+    "capture_kind",
     "artifact_hash",
     "artifact_size",
     "capture_receipt_hash",

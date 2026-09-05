@@ -104,6 +104,19 @@ prepared911 mirror. Source from the `prepared-docs` MCP when available.
 
 Missing this section when ui-* or docs paths changed invalidates the report.
 
+## Definitive visual acceptance
+
+The visual verifier must be distinct from the authoring session. It receives
+the expected outcomes, changed-path summary, full-resolution images, contact
+sheet, and v4 health receipts. Its report records PASS or FAIL for every
+`change_id` and binds the product trees, staged harness tree, evidence-manifest
+hash, artifact hashes, and reviewer identity.
+
+Visual acceptance does not replace deterministic provenance checks, Bugbot, or
+the T2 architecture and security review. A `not-applicable` row is reviewed
+through its machine-checked absence or static verification result and has no
+image verdict.
+
 ## Source priority
 
 For anything `@prepared/ui-*`, design-token, or shared-frontend-architecture

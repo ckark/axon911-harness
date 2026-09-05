@@ -151,7 +151,12 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
         )
 
         manifest = load_execution_manifest(args.manifest)
-        manifest_errors = validate_execution_manifest(manifest, repo_path=root_path)
+        root_paths = {root_id: resolve_cli_root(root_id) for root_id in (manifest.get("target_roots") or {})}
+        manifest_errors = validate_execution_manifest(
+            manifest,
+            repo_path=root_path,
+            root_paths=root_paths,
+        )
         if manifest_errors:
             for item in manifest_errors:
                 sys.stderr.write("register-plan: %s\n" % item)

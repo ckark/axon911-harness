@@ -50,10 +50,12 @@ def write_capture_receipt(
             if not chunk:
                 break
             digest.update(chunk)
+    capture_kind = str(capture.get("capture_kind") or "storybook")
     receipt: Dict[str, Any] = {
         "version": CAPTURE_RECEIPT_VERSION,
         "capture_id": str(uuid.uuid4()),
         "producer": CAPTURE_PRODUCER,
+        "capture_kind": capture_kind,
         "source_sha": source_sha,
         "source_tree": "dddddddddddddddddddddddddddddddddddddddd",
         "source_clean": True,
@@ -61,11 +63,15 @@ def write_capture_receipt(
         "change_id": capture.get("change_id", "demo-change"),
         "content_origin": capture.get("content_origin", "product"),
         "capture_scope": capture.get("capture_scope", "contextual"),
+        "server_port": int(capture.get("server_port") or 3005),
         "role": role,
         "artifact_path": artifact_path,
         "artifact_hash": digest.hexdigest(),
+        "route": capture.get("route", ""),
+        "entrypoint": capture.get("entrypoint", "dispatch"),
+        "scenario_id": capture.get("scenario_id", ""),
         "story_id": capture.get("story_id", ""),
-        "story_url": "http://127.0.0.1:3005/iframe.html",
+        "story_url": capture.get("story_url", "http://127.0.0.1:3005/iframe.html"),
         "theme": capture.get("theme", "dark"),
         "brand": capture.get("brand", "prepared"),
         "viewport": capture.get("viewport", "1280x720"),

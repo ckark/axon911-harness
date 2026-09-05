@@ -20,6 +20,7 @@ from lib.migration_evidence import (  # noqa: E402
     load_manifest,
     manifest_sha256,
     merge_pr_body,
+    migration_obligation_ids,
     obligation_id_for_change,
     revalidate_migration_manifest,
     render_pr_body,
@@ -34,19 +35,24 @@ class MigrationEvidenceTests(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.manifest_path = os.path.join(self.root, "manifest.json")
         self.capture = {
-            "story_id": "Dispatch App/chatroom/ShareBanner",
+            "route": "/chatroom/cr-1",
+            "entrypoint": "dispatch",
+            "scenario_id": "share-banner-notes",
+            "capture_kind": "product-route",
             "theme": "dark",
             "brand": "prepared",
             "viewport": "1280x720",
             "state": "shared-unacknowledged",
         }
         self.manifest = {
-            "schema_version": 2,
+            "schema_version": 3,
             "plan_hash": "core819-call-taking",
             "changes": [
                 {
                     "change_id": "share-banner-notes",
                     "title": "ShareBanner PSAP share callout",
+                    "evidence_state": "changed",
+                    "capture_kind": "product-route",
                     "source_paths": ["turbo/apps/dispatch/src/modules/chatroom-psap-sharing/ShareBanner/ShareBanner.tsx"],
                     "capture": self.capture,
                     "before_url": "https://github.com/user-attachments/assets/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
@@ -80,6 +86,13 @@ class MigrationEvidenceTests(unittest.TestCase):
     def test_manifest_shape_validation(self) -> None:
         errors = validate_manifest_shape(self.manifest)
         self.assertEqual(errors, [])
+
+    def test_migration_obligations_are_scoped_to_root(self) -> None:
+        self.assertEqual(
+            migration_obligation_ids("prepared911", self.manifest),
+            ["prepared911.migration-evidence.share-banner-notes"],
+        )
+        self.assertEqual(migration_obligation_ids("personal-harness", self.manifest), [])
 
     def test_record_and_revalidate_change_pair(self) -> None:
         obligation = obligation_id_for_change("prepared911", "share-banner-notes")

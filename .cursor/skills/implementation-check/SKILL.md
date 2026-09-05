@@ -61,6 +61,12 @@ Local receipts are cooperative assurance, not tamper-proof enforcement.
      --subject-tree-oid <staged-tree>
    ```
 
+   Schema v4 preflight rejects legacy receipts, mismatched pinned refs,
+   opposite-role process or cache reuse, missing route/story identity,
+   missing changed-path execution proof, and `not-applicable` rows with image
+   slots. The visual report is separate from capture health and must bind every
+   artifact hash.
+
 7. Push readiness (read-only; no checks run):
 
    ```bash
