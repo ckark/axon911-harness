@@ -1,4 +1,4 @@
-export const targetSelector = "main";
+export const targetSelector = "body";
 
 export async function setup() {}
 
