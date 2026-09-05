@@ -79,6 +79,7 @@ async function main() {
       ? await adapter.proveChangedPaths(page, { scenario })
       : [];
     const failed = domAssertions.filter((item) => item && item.passed === false);
+    const failedProof = changedPathProof.filter((item) => item && item.passed === false);
     await target.screenshot({ path: spec.outputPath });
     const health = {
       storybook_ready: true,
@@ -91,9 +92,13 @@ async function main() {
       console_errors: consoleErrors,
       failed_requests: failedRequests,
       dom_assertions_passed: failed.length === 0,
+      changed_path_proof_passed: changedPathProof.length > 0 && failedProof.length === 0,
     };
     if (failed.length) {
       throw new Error(`dom assertions failed: ${failed.map((item) => item.type).join(", ")}`);
+    }
+    if (!changedPathProof.length || failedProof.length) {
+      throw new Error("changed-path proof failed");
     }
     process.stdout.write(
       JSON.stringify({
