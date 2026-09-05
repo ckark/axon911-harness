@@ -44,6 +44,46 @@ class PlanProfileTests(unittest.TestCase):
         self.assertNotIn("prepared911.docs-registry", selection["required_obligation_ids"])
         self.assertNotIn("prepared911.docs-page", selection["required_obligation_ids"])
 
+    def test_strict_evidence_state_classifies_ui_surface(self) -> None:
+        profile = {
+            "profiled": True,
+            "strict": True,
+            "scope": ["packages/ui-core/**"],
+            "path_surfaces": {},
+            "evidence_states": {"packages/ui-core/**": "before-after"},
+        }
+        selection = select_obligations(
+            "axon911-frontend",
+            ["packages/ui-core/src/components/typography/styles.scss"],
+            profile,
+            "T0",
+        )
+        self.assertEqual(selection["classification_errors"], [])
+        self.assertEqual(
+            selection["path_surfaces"]["packages/ui-core/src/components/typography/styles.scss"],
+            "existing-visible",
+        )
+
+    def test_commit_family_defers_rendered_evidence(self) -> None:
+        profile = {
+            "profiled": True,
+            "strict": True,
+            "scope": ["packages/ui-core/**"],
+            "path_surfaces": {},
+            "evidence_states": {"packages/ui-core/**": "before-after"},
+        }
+        selection = select_obligations(
+            "axon911-frontend",
+            ["packages/ui-core/src/components/typography/styles.scss"],
+            profile,
+            "T0",
+            family="git-commit",
+        )
+        required = selection["required_obligation_ids"]
+        self.assertIn("axon911-frontend.docs-page", required)
+        self.assertNotIn("axon911-frontend.rendered-evidence", required)
+        self.assertNotIn("axon911-frontend.rendered-evidence.before-after", required)
+
     def test_profile_registration_is_atomic(self) -> None:
         register_plan_profile(
             "personal-harness",

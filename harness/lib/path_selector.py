@@ -208,6 +208,16 @@ def select_obligations(
         declared = _longest_surface_match(path, path_surfaces)
         if declared:
             surface = declared
+        elif profiled and evidence_states:
+            evidence_state = _longest_evidence_state(path, evidence_states)
+            if evidence_state == "none":
+                surface = SURFACE_NON_VISIBLE
+            elif evidence_state == "after":
+                surface = SURFACE_NEW_VISIBLE
+            elif evidence_state == "before-after":
+                surface = SURFACE_EXISTING_VISIBLE
+            else:
+                surface = _infer_surface(root_id, path)
         elif profiled and PREPARED911_UI.search(path):
             classification_errors.append("missing surface classification for prepared911 ui path: %s" % path)
             surface = _infer_surface(root_id, path)
@@ -266,6 +276,15 @@ def select_obligations(
             required.update(migration_obligation_ids(root_id, manifest))
         except (OSError, ValueError):
             classification_errors.append("invalid migration manifest: %s" % migration_manifest_path)
+
+    if family == "git-commit":
+        required = {
+            item
+            for item in required
+            if ".migration-evidence." not in item
+            and not item.endswith(".rendered-evidence")
+            and not item.endswith(".rendered-evidence.before-after")
+        }
 
     if include_review and review_required(tier):
         required.add("review.%s" % tier)

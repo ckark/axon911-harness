@@ -187,6 +187,11 @@ Read-only Git chains (`git log && git status`, etc.) are allowed when every
 stage uses a recognized read-only verb. Commits and pushes must be separate
 commands.
 
+For strict migrations, commit preflight requires plan conformance and
+nonvisual obligations but defers rendered-evidence and visual-acceptance
+obligations. Push preflight requires those receipts against the resulting
+commit identity.
+
 ## Recovery command
 
 ```text
