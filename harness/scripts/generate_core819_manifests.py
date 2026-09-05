@@ -16,7 +16,7 @@ from lib.migration_evidence import manifest_sha256  # noqa: E402
 from lib.paths import harness_root, runtime_dir  # noqa: E402
 
 PLAN_SHA256 = "de582facd176d72e097dc7e6465409cb7408f08d41867f35d73a1dca20146513"
-EXECUTION_ID = "core819-definitive-v4-r3"
+EXECUTION_ID = "core819-definitive-v4-r4"
 PLAN_HASH = EXECUTION_ID
 
 REFS = {
