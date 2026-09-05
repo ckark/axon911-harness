@@ -95,6 +95,8 @@ class PlanProfileTests(unittest.TestCase):
             "abc123",
             "authoring",
             {"harness/lib/**": "non-visible"},
+            evidence_states={"harness/lib/**": "none"},
+            execution_manifest_hash="manifest-hash",
             base=self.base,
         )
         from lib.ledger import current_state
@@ -104,6 +106,8 @@ class PlanProfileTests(unittest.TestCase):
         self.assertTrue(profile["profiled"])
         self.assertEqual(profile["base_oid"], "abc123")
         self.assertEqual(profile["scope"], ["harness/**"])
+        self.assertEqual(profile["evidence_states"], {"harness/lib/**": "none"})
+        self.assertEqual(profile["execution_manifest_hash"], "manifest-hash")
 
 
 if __name__ == "__main__":

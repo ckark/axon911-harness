@@ -251,6 +251,8 @@ def _apply_record_to_index(index: Dict[str, Any], record: Mapping[str, Any]) -> 
             "mirror_intent": record.get("mirror_intent") or "",
             "path_surfaces": dict(record.get("path_surfaces") or {}),
             "evidence_manifest_pointer": record.get("evidence_manifest_pointer") or "",
+            "evidence_states": dict(record.get("evidence_states") or {}),
+            "execution_manifest_hash": record.get("execution_manifest_hash") or "",
             "strict": bool(record.get("strict")),
             "budget_max_turns": int(record.get("budget_max_turns") or 0),
             "budget_max_context_bytes": int(record.get("budget_max_context_bytes") or 0),
