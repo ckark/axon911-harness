@@ -22,6 +22,15 @@ For **migration PRs**, use a per-change manifest and the migration evidence comm
 
 ## Migration PR procedure
 
+0. Register the accepted plan and run preflight before any capture:
+
+   ```bash
+   python3 harness/cli.py register-plan --root <root> \
+     --manifest execution-manifest.json \
+     --evidence-manifest .harness/runtime/evidence/<plan-hash>/manifest.json
+   python3 harness/cli.py capture-ready --root <root> --kind before|after
+   ```
+
 1. Author a manifest under `.harness/runtime/evidence/<plan-hash>/manifest.json` with one entry per visually changed consumer or state. Each entry needs `change_id`, `title`, `source_paths`, and `capture` metadata (`story_id`, `theme`, `brand`, `viewport`, `state`).
 2. Capture **Before** on the baseline branch and **After** on the migration branch using the same capture metadata.
 3. Register artifacts:

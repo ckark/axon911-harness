@@ -59,6 +59,8 @@ def plan_context_payload(
     required_paths: Sequence[str] = (),
     target_roots: Sequence[str] = (),
     evidence_manifest_pointer: str = "",
+    evidence_states: Optional[Mapping[str, str]] = None,
+    execution_manifest_hash: str = "",
     strict: bool = False,
     budget_max_turns: int = 0,
     budget_max_context_bytes: int = 0,
@@ -67,6 +69,11 @@ def plan_context_payload(
     surfaces = {
         _normalize_relpath(key): value
         for key, value in sorted(path_surfaces.items())
+        if str(key).strip() and str(value).strip()
+    }
+    states = {
+        _normalize_relpath(key): value.strip()
+        for key, value in sorted((evidence_states or {}).items())
         if str(key).strip() and str(value).strip()
     }
     return {
@@ -78,6 +85,8 @@ def plan_context_payload(
         "mirror_intent": mirror_intent.strip(),
         "path_surfaces": surfaces,
         "evidence_manifest_pointer": evidence_manifest_pointer.strip(),
+        "evidence_states": states,
+        "execution_manifest_hash": execution_manifest_hash.strip(),
         "strict": bool(strict),
         "budget_max_turns": int(budget_max_turns or 0),
         "budget_max_context_bytes": int(budget_max_context_bytes or 0),
@@ -142,6 +151,8 @@ def register_plan_profile(
     required_paths: Sequence[str] = (),
     target_roots: Sequence[str] = (),
     evidence_manifest_pointer: str = "",
+    evidence_states: Optional[Mapping[str, str]] = None,
+    execution_manifest_hash: str = "",
     strict: bool = False,
     budget_max_turns: int = 0,
     budget_max_context_bytes: int = 0,
@@ -166,10 +177,17 @@ def register_plan_profile(
         required_paths=required_paths,
         target_roots=target_roots,
         evidence_manifest_pointer=evidence_manifest_pointer,
+        evidence_states=evidence_states or {},
+        execution_manifest_hash=execution_manifest_hash,
         strict=strict,
         budget_max_turns=budget_max_turns,
         budget_max_context_bytes=budget_max_context_bytes,
     )
+    states = {
+        _normalize_relpath(key): value.strip()
+        for key, value in (evidence_states or {}).items()
+        if str(key).strip() and str(value).strip()
+    }
     return append_record(
         {
             "kind": "plan_profile",
@@ -190,6 +208,8 @@ def register_plan_profile(
                 if str(key).strip() and str(value).strip()
             },
             "evidence_manifest_pointer": evidence_manifest_pointer.strip(),
+            "evidence_states": states,
+            "execution_manifest_hash": execution_manifest_hash.strip(),
             "strict": bool(strict),
             "budget_max_turns": int(budget_max_turns or 0),
             "budget_max_context_bytes": int(budget_max_context_bytes or 0),
@@ -218,6 +238,8 @@ def active_profile(state: Mapping[str, Any], root: str, worktree_id: str) -> Dic
     mirror_intent = str(found.get("mirror_intent") or "")
     path_surfaces = dict(found.get("path_surfaces") or {})
     evidence_manifest_pointer = str(found.get("evidence_manifest_pointer") or "")
+    evidence_states = dict(found.get("evidence_states") or {})
+    execution_manifest_hash = str(found.get("execution_manifest_hash") or "")
     strict = bool(found.get("strict"))
     budget_max_turns = int(found.get("budget_max_turns") or 0)
     budget_max_context_bytes = int(found.get("budget_max_context_bytes") or 0)
@@ -232,6 +254,8 @@ def active_profile(state: Mapping[str, Any], root: str, worktree_id: str) -> Dic
             required_paths=required_paths,
             target_roots=target_roots,
             evidence_manifest_pointer=evidence_manifest_pointer,
+            evidence_states=evidence_states,
+            execution_manifest_hash=execution_manifest_hash,
             strict=strict,
             budget_max_turns=budget_max_turns,
             budget_max_context_bytes=budget_max_context_bytes,
@@ -250,6 +274,8 @@ def active_profile(state: Mapping[str, Any], root: str, worktree_id: str) -> Dic
         "mirror_intent": mirror_intent,
         "path_surfaces": path_surfaces,
         "evidence_manifest_pointer": evidence_manifest_pointer,
+        "evidence_states": evidence_states,
+        "execution_manifest_hash": execution_manifest_hash,
         "migration_manifest_pointer": str(manifest_entry.get("pointer") or ""),
         "strict": strict,
         "budget_max_turns": budget_max_turns,

@@ -106,6 +106,32 @@ List every known related concern the plan deliberately does not address.
 Without this section, review-contract downgrades for `out-of-scope` and
 `remediated-by-plan` cannot apply.
 
+## Execution manifest (strict plans)
+
+For user-visible migrations, compile the accepted plan into a canonical execution
+manifest JSON before implementation:
+
+| Field | Purpose |
+|---|---|
+| `plan_hash` | Immutable plan identity |
+| `tier` | `T0` / `T1` / `T2` blast radius |
+| `target_roots.<root>.base_oid` | Pinned baseline commit |
+| `target_roots.<root>.allowed_paths` | Declared scope globs |
+| `target_roots.<root>.required_paths` | Paths that must change |
+| `target_roots.<root>.evidence_states` | Per-glob evidence mode: `none`, `after`, `before-after` |
+| `budgets` | Session turn and context limits |
+
+Register with:
+
+```bash
+python3 harness/cli.py register-plan --root <root> \
+  --manifest execution-manifest.json \
+  --evidence-manifest .harness/runtime/evidence/<plan>/manifest.json
+```
+
+Changing scope, evidence mode, sequencing, or budgets requires a new manifest
+version; prior receipts bind to the previous `execution_manifest_hash`.
+
 ## Completeness verdict
 
 A plan is contract-complete only when every required section is present and the

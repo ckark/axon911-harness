@@ -113,6 +113,42 @@ def _migration_manifest_path(profile: Mapping[str, Any], root_id: str) -> str:
     return ""
 
 
+def _longest_evidence_state(path: str, evidence_states: Mapping[str, str]) -> Optional[str]:
+    normalized = _normalize(path)
+    best: Optional[Tuple[int, str]] = None
+    for pattern, state in evidence_states.items():
+        pat = _normalize(pattern)
+        matched = _matches_scope(normalized, [pat])
+        if matched:
+            rank = len(pat)
+            if best is None or rank > best[0]:
+                best = (rank, str(state).strip())
+    return best[1] if best else None
+
+
+def _evidence_flags_from_states(
+    changed_paths: Sequence[str],
+    evidence_states: Mapping[str, str],
+) -> Tuple[bool, bool, bool]:
+    """Return (needs_any_evidence, needs_before_after, all_none)."""
+    if not evidence_states:
+        return False, False, False
+    states: List[str] = []
+    for path in changed_paths:
+        state = _longest_evidence_state(path, evidence_states)
+        if state:
+            states.append(state)
+    if not states:
+        return False, False, True
+    from .execution_manifest import EVIDENCE_AFTER, EVIDENCE_BEFORE_AFTER, EVIDENCE_NONE
+
+    if all(item == EVIDENCE_NONE for item in states):
+        return False, False, True
+    needs_before_after = any(item == EVIDENCE_BEFORE_AFTER for item in states)
+    needs_any = any(item in (EVIDENCE_AFTER, EVIDENCE_BEFORE_AFTER) for item in states)
+    return needs_any, needs_before_after, False
+
+
 def select_obligations(
     root_id: str,
     changed_paths: Sequence[str],
@@ -126,6 +162,7 @@ def select_obligations(
 
     scope = list(profile.get("scope") or [])
     strict = bool(profile.get("strict"))
+    evidence_states = dict(profile.get("evidence_states") or {})
     path_surfaces = dict(profile.get("path_surfaces") or {})
     mirror_intent = str(profile.get("mirror_intent") or "")
     profiled = bool(profile.get("profiled"))
@@ -196,9 +233,28 @@ def select_obligations(
         if obligations_for(root_id) and rendered not in required:
             if not any(item.endswith(".rendered-evidence") for item in required):
                 required.add(rendered)
-    if not user_visible:
+    if evidence_states:
+        needs_any, needs_before_after, all_none = _evidence_flags_from_states(
+            normalized_paths,
+            evidence_states,
+        )
         required = {item for item in required if not item.endswith(".rendered-evidence")}
-    if user_visible and existing_surface:
+        required.discard("%s.rendered-evidence.before-after" % root_id)
+        if all_none:
+            user_visible = False
+        elif needs_any:
+            user_visible = True
+            rendered = "%s.rendered-evidence" % root_id
+            if obligations_for(root_id):
+                required.add(rendered)
+            if needs_before_after:
+                required.add("%s.rendered-evidence.before-after" % root_id)
+                existing_surface = True
+    elif not user_visible:
+        required = {item for item in required if not item.endswith(".rendered-evidence")}
+    if not user_visible and not evidence_states:
+        required = {item for item in required if not item.endswith(".rendered-evidence")}
+    if user_visible and existing_surface and not evidence_states:
         required.add("%s.rendered-evidence.before-after" % root_id)
 
     migration_manifest_path = _migration_manifest_path(profile, root_id)

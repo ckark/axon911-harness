@@ -107,6 +107,8 @@ def issue_visual_acceptance_receipt(
         fingerprint=fingerprint,
         active_plan_hash=plan_hash,
         require_hosted_urls=False,
+        require_v3_provenance=True,
+        repo_path=root_path.strip() or evidence_root,
     )
     errors.extend(evidence_errors)
     if subject_tree_oid.strip() and report_path:

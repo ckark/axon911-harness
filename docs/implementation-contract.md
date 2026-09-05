@@ -127,6 +127,22 @@ Before claiming a fix complete:
 
 Do not leave sibling call sites untouched after autocorrecting one.
 
+## Lean execution sequence (user-visible migrations)
+
+1. Freeze and register the accepted plan (`register-plan --manifest`).
+2. Capture baseline states once from the pinned `base_oid`.
+3. Implement the shared contract plus one representative real consumer.
+4. Run focused type, semantic DOM, and rendered-product checks for that sentinel.
+5. Stop and correct the contract if the sentinel fails; do not begin the sweep.
+6. Migrate remaining consumers and run affected checks.
+7. Stage final content, run `capture-ready` (alias `execution-preflight`), batch after captures once.
+8. Run one fresh-context visual acceptance pass; then commit, push, and publish hosted evidence.
+
+`capture-ready` blocks capture when the strict profile is missing, required paths
+are untouched, nonvisual verification receipts are missing, the after subject
+tree is not final, manifest coverage does not match the diff, or the session is
+over budget.
+
 ## Rendered evidence for anything a user sees
 
 Anything an operator or user sees rendered — UI components, docs pages, modal

@@ -112,6 +112,11 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
     parser.add_argument("--mirror-intent", default="")
     parser.add_argument("--path-surface", action="append", default=[])
     parser.add_argument("--evidence-manifest", default="", help="Path to migration evidence manifest JSON")
+    parser.add_argument(
+        "--manifest",
+        default="",
+        help="Path to canonical execution manifest JSON (strict registration)",
+    )
     parser.add_argument("--strict", action="store_true", help="Require full execution manifest fields")
     parser.add_argument("--budget-max-turns", type=int, default=0)
     parser.add_argument("--budget-max-context-bytes", type=int, default=0)
@@ -135,6 +140,41 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
     scope = normalize_scope(args.scope)
     required_paths = normalize_scope(args.required_path)
     target_roots = normalize_scope(args.target_root)
+    evidence_manifest = args.evidence_manifest
+    execution_manifest_hash = ""
+    evidence_states: dict[str, str] = {}
+    if args.manifest:
+        from lib.execution_manifest import (
+            load_execution_manifest,
+            profile_kwargs_from_manifest,
+            validate_execution_manifest,
+        )
+
+        manifest = load_execution_manifest(args.manifest)
+        manifest_errors = validate_execution_manifest(manifest, repo_path=root_path)
+        if manifest_errors:
+            for item in manifest_errors:
+                sys.stderr.write("register-plan: %s\n" % item)
+            return 2
+        kwargs = profile_kwargs_from_manifest(
+            manifest,
+            args.root,
+            evidence_manifest_pointer=evidence_manifest,
+        )
+        args.plan_hash = kwargs["plan_hash"] or args.plan_hash
+        args.tier = kwargs["tier"] or args.tier
+        scope = kwargs["scope"] or scope
+        required_paths = kwargs["required_paths"] or required_paths
+        target_roots = kwargs["target_roots"] or target_roots
+        args.base_oid = kwargs["base_oid"] or args.base_oid
+        mirror_intent = kwargs["mirror_intent"] or mirror_intent
+        evidence_states = kwargs.get("evidence_states") or {}
+        execution_manifest_hash = kwargs.get("execution_manifest_hash") or ""
+        args.strict = True
+        if not evidence_manifest and kwargs.get("evidence_manifest_pointer"):
+            evidence_manifest = kwargs["evidence_manifest_pointer"]
+        args.budget_max_turns = kwargs.get("budget_max_turns") or args.budget_max_turns
+        args.budget_max_context_bytes = kwargs.get("budget_max_context_bytes") or args.budget_max_context_bytes
     if scope or args.base_oid or mirror_intent or path_surfaces or args.strict:
         try:
             register_plan_profile(
@@ -149,7 +189,9 @@ def cmd_register_plan(argv: Sequence[str]) -> int:
                 path_surfaces,
                 required_paths=required_paths,
                 target_roots=target_roots,
-                evidence_manifest_pointer=args.evidence_manifest,
+                evidence_manifest_pointer=evidence_manifest,
+                evidence_states=evidence_states,
+                execution_manifest_hash=execution_manifest_hash,
                 strict=args.strict,
                 budget_max_turns=args.budget_max_turns,
                 budget_max_context_bytes=args.budget_max_context_bytes,
@@ -1226,6 +1268,7 @@ SUBCOMMANDS = {
     "handoff": cmd_handoff,
     "bundle": cmd_bundle,
     "capture-ready": cmd_capture_ready,
+    "execution-preflight": cmd_capture_ready,
     "budget-check": cmd_budget_check,
     "issue-visual-acceptance-receipt": cmd_issue_visual_acceptance,
     "cost": cmd_cost,

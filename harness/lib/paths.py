@@ -174,8 +174,6 @@ def identify_root(path: str, roots: Optional[Mapping[str, str]] = None) -> Tuple
     candidate_top, candidate_common = worktree_identity(probe) if probe else (None, None)
     if candidate_common:
         for root_id, root_path in mapping.items():
-            if root_id == "personal-harness":
-                continue
             _, configured_common = worktree_identity(root_path)
             if configured_common and configured_common == candidate_common:
                 return root_id, candidate_top or real

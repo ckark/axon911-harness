@@ -164,12 +164,14 @@ def revalidate_migration_manifest(
     repo_path: str = "",
     changed_paths: Optional[Sequence[str]] = None,
     require_resolved_commit_sha: bool = False,
+    require_v3_provenance: bool = False,
 ) -> Sequence[str]:
     errors = list(validate_manifest_shape(manifest))
     if active_plan_hash and str(manifest.get("plan_hash") or "") != active_plan_hash:
         errors.append("manifest-plan-hash-mismatch")
     if errors:
         return errors
+    manifest_hash = manifest_sha256(manifest)
     for item in manifest.get("changes") or []:
         if not isinstance(item, dict):
             continue
@@ -206,6 +208,11 @@ def revalidate_migration_manifest(
                         from .capture_receipt import load_capture_receipt
 
                         receipt = load_capture_receipt(receipt_path)
+                        if (
+                            str(item.get("capture_scope") or "contextual") == "contextual"
+                            and str(receipt.get("content_origin") or "") == "synthetic"
+                        ):
+                            errors.append("synthetic-cannot-satisfy-contextual:%s:%s" % (change_id, kind))
                         errors.extend(
                             validate_capture_receipt_binding(
                                 receipt,
@@ -214,7 +221,16 @@ def revalidate_migration_manifest(
                                 role=kind,
                                 capture=capture,
                                 require_resolved_commit_sha=require_resolved_commit_sha,
-                                repo_path=repo_path,
+                                require_v3=require_v3_provenance,
+                                repo_path=repo_path or root_path,
+                                expected_manifest_hash=manifest_hash if require_v3_provenance else "",
+                                expected_change_id=change_id if require_v3_provenance else "",
+                                expected_content_origin=str(item.get("content_origin") or "product")
+                                if require_v3_provenance
+                                else "",
+                                expected_capture_scope=str(item.get("capture_scope") or "contextual")
+                                if require_v3_provenance
+                                else "",
                             )
                         )
                     except (OSError, ValueError) as exc:
@@ -249,6 +265,23 @@ def revalidate_migration_manifest(
                 if not any(_matches(changed, [normalized]) for changed in changed_paths):
                     errors.append("manifest-source-path-not-in-diff:%s:%s" % (change_id, normalized))
     return errors
+
+
+def verify_migration_manifest_publication(
+    body: str,
+    manifest: Mapping[str, Any],
+    *,
+    base_sha: str,
+    head_sha: str,
+) -> List[str]:
+    """Validate hosted PR publication separate from local artifact revalidation."""
+    return verify_pr_body_block(
+        body,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        manifest_hash=manifest_sha256(manifest),
+        expected_change_count=len(manifest.get("changes") or []),
+    )
 
 
 def _render_change_section(

@@ -104,5 +104,30 @@ class CaptureReadyTests(unittest.TestCase):
         self.assertNotIn("missing-base-oid", result["errors"])
 
 
+    def test_manifest_source_path_must_appear_in_diff(self) -> None:
+        register_plan_profile(
+            "personal-harness",
+            "wt",
+            "fp",
+            "plan-x",
+            "T1",
+            ["packages/ui-core/**"],
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "",
+            {},
+            evidence_manifest_pointer=self.manifest_path,
+            strict=True,
+            base=self.base,
+        )
+        result = evaluate_capture_ready(
+            "personal-harness",
+            self.root,
+            "wt",
+            "fp",
+            base=self.base,
+        )
+        self.assertIn("manifest-source-path-not-in-diff:change-a:", " ".join(result["errors"]))
+
+
 if __name__ == "__main__":
     unittest.main()

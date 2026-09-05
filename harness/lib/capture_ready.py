@@ -49,8 +49,8 @@ def evaluate_capture_ready(
     if not profile.get("profiled"):
         errors.append("missing-strict-plan-profile")
         next_commands.append(
-            "python3 harness/cli.py register-plan --root %s --plan-hash <hash> "
-            "--tier <tier> --base-oid <oid> --scope '<glob>' --strict" % root_id
+            "python3 harness/cli.py register-plan --root %s --manifest execution-manifest.json"
+            % root_id
         )
     if profile.get("strict") and not str(profile.get("base_oid") or "").strip():
         errors.append("missing-base-oid")
@@ -58,6 +58,7 @@ def evaluate_capture_ready(
     if base_oid and not is_commit_oid(base_oid, root_path):
         errors.append("invalid-base-oid")
     manifest_pointer = str(profile.get("evidence_manifest_pointer") or "")
+    manifest: Dict[str, Any] = {}
     if profile.get("strict") and not manifest_pointer:
         errors.append("missing-evidence-manifest")
     elif manifest_pointer:
@@ -73,6 +74,20 @@ def evaluate_capture_ready(
                 errors.append("invalid-evidence-manifest:%s" % exc)
 
     changed = changed_paths(root_path)
+    if manifest and changed:
+        from .conformance import _matches
+
+        for item in manifest.get("changes") or []:
+            if not isinstance(item, dict):
+                continue
+            change_id = str(item.get("change_id") or "")
+            source_paths = item.get("source_paths")
+            if not isinstance(source_paths, list):
+                continue
+            for source_path in source_paths:
+                normalized = str(source_path).replace(os.sep, "/")
+                if not any(_matches(path, [normalized]) for path in changed):
+                    errors.append("manifest-source-path-not-in-diff:%s:%s" % (change_id, normalized))
     conformance = evaluate_against_base(
         root_id,
         worktree_id,

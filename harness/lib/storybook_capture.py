@@ -12,7 +12,12 @@ import time
 import uuid
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-from .capture_receipt import CAPTURE_PRODUCER, CAPTURE_RECEIPT_VERSION, write_capture_receipt
+from .capture_receipt import (
+    CAPTURE_PRODUCER,
+    CAPTURE_RECEIPT_VERSION,
+    capture_source_provenance,
+    write_capture_receipt,
+)
 from .media_validation import image_metadata
 from .paths import harness_root, runtime_dir
 
@@ -93,12 +98,21 @@ def capture_batch(
     port: int = DEFAULT_STORYBOOK_PORT,
     storybook_process: Optional[subprocess.Popen[Any]] = None,
     manage_storybook: bool = True,
+    manifest_hash: str = "",
+    content_origin: str = "product",
+    capture_scope: str = "contextual",
+    staged_subject: bool = False,
 ) -> List[Dict[str, Any]]:
     """Capture a batch of stories and write PNG + receipt pairs."""
     owned_process = manage_storybook and storybook_process is None
     process = storybook_process
     if manage_storybook and process is None:
         process = start_storybook(product_root, port=port)
+    provenance = capture_source_provenance(
+        product_root,
+        source_sha=source_sha,
+        staged=staged_subject or role == "after",
+    )
     script_path = os.path.join(harness_root(), "harness", "scripts", "storybook-capture.mjs")
     playwright_root = _find_playwright_root(product_root)
     spec = {
@@ -114,6 +128,7 @@ def capture_batch(
                 "target_selector": item.get("target_selector", DEFAULT_TARGET_SELECTOR),
                 "output_path": os.path.abspath(item["output_path"]),
                 "actions": list(item.get("actions") or []),
+                "dom_assertions": list(item.get("dom_assertions") or []),
             }
             for item in captures
         ],
@@ -136,7 +151,17 @@ def capture_batch(
         payload = json.loads(result.stdout.strip() or "{}")
         if not payload.get("ok"):
             raise StorybookCaptureError("capture script failed")
-        for capture, outcome in zip(captures, payload.get("results") or []):
+        outcomes = payload.get("results") or []
+        if len(outcomes) != len(captures):
+            raise StorybookCaptureError(
+                "capture result count mismatch: expected %d got %d" % (len(captures), len(outcomes))
+            )
+        for capture, outcome in zip(captures, outcomes):
+            if str(outcome.get("story_id") or "") != str(capture.get("story_id") or ""):
+                raise StorybookCaptureError(
+                    "capture story_id mismatch: expected %s got %s"
+                    % (capture.get("story_id"), outcome.get("story_id"))
+                )
             output_path = os.path.abspath(str(capture["output_path"]))
             mime, width, height = image_metadata(output_path)
             digest = hashlib.sha256()
@@ -146,11 +171,18 @@ def capture_batch(
                     if not chunk:
                         break
                     digest.update(chunk)
+            change_id = str(capture.get("change_id") or "")
             receipt = {
                 "version": CAPTURE_RECEIPT_VERSION,
                 "capture_id": str(capture.get("capture_id") or uuid.uuid4()),
                 "producer": CAPTURE_PRODUCER,
-                "source_sha": source_sha,
+                "source_sha": provenance["source_sha"],
+                "source_tree": provenance["source_tree"],
+                "source_clean": provenance["source_clean"],
+                "manifest_hash": manifest_hash,
+                "change_id": change_id,
+                "content_origin": str(capture.get("content_origin") or content_origin),
+                "capture_scope": str(capture.get("capture_scope") or capture_scope),
                 "role": role,
                 "artifact_path": output_path,
                 "artifact_hash": digest.hexdigest(),
@@ -161,6 +193,9 @@ def capture_batch(
                 "viewport": str(capture.get("viewport") or ""),
                 "state": str(capture.get("state") or ""),
                 "target_selector": str(outcome.get("target_selector") or DEFAULT_TARGET_SELECTOR),
+                "clip_selector": str(outcome.get("clip_selector") or DEFAULT_TARGET_SELECTOR),
+                "clip_bounds": outcome.get("clip_bounds") or {},
+                "dom_assertions": outcome.get("dom_assertions") or [],
                 "mime": mime,
                 "width": width,
                 "height": height,

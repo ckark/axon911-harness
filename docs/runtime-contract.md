@@ -195,5 +195,23 @@ commands.
 
 Also: `python3 harness/cli.py verify --explain`, `python3 harness/cli.py ship-plan`,
 `python3 harness/cli.py preview-obligations`, `python3 harness/cli.py record-evidence`,
+`python3 harness/cli.py capture-ready`, `python3 harness/cli.py execution-preflight`,
+`python3 harness/cli.py issue-visual-acceptance-receipt`,
 `python3 harness/cli.py session-status`, `python3 harness/cli.py handoff`,
 `python3 harness/cli.py bundle verify`, `python3 harness/cli.py cost <transcript>`.
+
+## Capture preflight and visual acceptance
+
+Before a screenshot campaign, `capture-ready` (alias `execution-preflight`) checks
+the strict execution manifest, scope conformance, nonvisual verification receipts,
+final staged subject tree, migration manifest coverage, and session budget.
+
+Capture receipts (v3) bind artifact bytes to `source_sha`, `source_tree`,
+`manifest_hash`, `change_id`, `content_origin`, `capture_scope`, clip bounds, and
+DOM assertion results. Capture health receipts prove render readiness only; they
+do not substitute for visual acceptance.
+
+User-visible migration work requires one fresh-context visual acceptance receipt
+(`visual.acceptance`) issued by a reviewer session distinct from the authoring
+session. The report must pass every manifest `change_id`; per-change `FAIL`
+verdicts block ship even when the overall verdict is `PASS`.

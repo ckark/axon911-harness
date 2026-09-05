@@ -126,7 +126,7 @@ async function bootstrapBrandClass(page, brand) {
 }
 
 async function resolveCaptureClip(page, selector) {
-  const clip = await page.evaluate(
+  return page.evaluate(
     ({ rootSelector, padding }) => {
       const root = document.querySelector(rootSelector);
       if (!root) {
@@ -138,20 +138,71 @@ async function resolveCaptureClip(page, selector) {
         root.querySelector(".pr-callout") ||
         root.firstElementChild ||
         root;
+      const clipSelector =
+        preferred === root
+          ? rootSelector
+          : `${rootSelector} ${preferred.tagName.toLowerCase()}${preferred.classList.length ? `.${Array.from(preferred.classList).join(".")}` : ""}`;
       const rect = preferred.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) {
         return null;
       }
       return {
-        x: Math.max(0, rect.x - padding),
-        y: Math.max(0, rect.y - padding),
-        width: rect.width + padding * 2,
-        height: rect.height + padding * 2,
+        clip_selector: clipSelector,
+        clip_bounds: {
+          x: Math.max(0, rect.x - padding),
+          y: Math.max(0, rect.y - padding),
+          width: rect.width + padding * 2,
+          height: rect.height + padding * 2,
+        },
       };
     },
     { rootSelector: selector, padding: CAPTURE_PADDING_PX },
   );
-  return clip;
+}
+
+async function runDomAssertions(page, selector, assertions) {
+  const results = [];
+  for (const assertion of assertions || []) {
+    const type = String(assertion.type || "");
+    const target = assertion.selector || selector;
+    if (type === "required-descendant") {
+      const passed = await page.evaluate(
+        ({ rootSelector, childSelector }) => {
+          const root = document.querySelector(rootSelector);
+          if (!root) return false;
+          return Boolean(root.querySelector(childSelector));
+        },
+        { rootSelector: selector, childSelector: target },
+      );
+      results.push({ type, selector: target, passed });
+      continue;
+    }
+    if (type === "no-overflow") {
+      const passed = await page.evaluate(({ sel }) => {
+        const node = document.querySelector(sel);
+        if (!node) return false;
+        return node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1;
+      }, { sel: target });
+      results.push({ type, selector: target, passed });
+      continue;
+    }
+    if (type === "list-item-count") {
+      const min = Number(assertion.min || 1);
+      const passed = await page.evaluate(
+        ({ sel, minimum }) => {
+          const list = document.querySelector(sel);
+          if (!list) return false;
+          const items = list.querySelectorAll("li, [role='listitem']");
+          return items.length >= minimum;
+        },
+        { sel: target, minimum: min },
+      );
+      results.push({ type, selector: target, passed, min });
+      continue;
+    }
+    results.push({ type: type || "unknown", passed: false });
+  }
+  return results;
 }
 
 async function captureOne(page, capture, baseUrl, entries) {
@@ -205,8 +256,11 @@ async function captureOne(page, capture, baseUrl, entries) {
   const selector = capture.target_selector || "#storybook-root";
   const target = page.locator(selector).first();
   await target.waitFor({ state: "visible", timeout: 30000 });
-  const clip = await resolveCaptureClip(page, selector);
+  const clipInfo = await resolveCaptureClip(page, selector);
+  const clip = clipInfo?.clip_bounds || null;
   const box = clip || (await target.boundingBox());
+  const domAssertions = await runDomAssertions(page, selector, capture.dom_assertions || []);
+  const domPassed = domAssertions.every((item) => item.passed !== false);
   const stylesheetsPresent = await page.evaluate(() => document.styleSheets.length > 0);
   const cssTokensReadyValue = await cssTokensReady(page);
   const themeState = await themeApplied(page, capture.theme || "dark");
@@ -243,6 +297,9 @@ async function captureOne(page, capture, baseUrl, entries) {
     resolved_story_id: slug,
     story_url: url,
     target_selector: selector,
+    clip_selector: clipInfo?.clip_selector || selector,
+    clip_bounds: clipInfo?.clip_bounds || box || { x: 0, y: 0, width: 0, height: 0 },
+    dom_assertions: domAssertions,
     width: box?.width || 0,
     height: box?.height || 0,
     health: {
@@ -255,6 +312,7 @@ async function captureOne(page, capture, baseUrl, entries) {
       stylesheets_present: stylesheetsPresent,
       console_errors: consoleErrors,
       failed_requests: failedRequests,
+      dom_assertions_passed: domPassed,
     },
   };
 }

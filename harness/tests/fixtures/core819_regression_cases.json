@@ -1,0 +1,22 @@
+[
+  {
+    "case_id": "row-layout-identical-hash",
+    "description": "RowLayout before/after PNGs were identical despite claimed visual change",
+    "expected_errors": ["before-after-hash-identical:row-layout"]
+  },
+  {
+    "case_id": "critical-misses-outside-callout",
+    "description": "Critical Misses content rendered outside its Callout container",
+    "expected_errors": ["dom-assertion-failed:required-descendant"]
+  },
+  {
+    "case_id": "anet-cta-clipped",
+    "description": "ANET disabled banner CTA clipped by overflow",
+    "expected_errors": ["dom-assertion-failed:no-overflow"]
+  },
+  {
+    "case_id": "source-provenance-mismatch",
+    "description": "Receipt source_sha did not match resolved fixture commit",
+    "expected_errors": ["capture-receipt-unresolved-source-sha"]
+  }
+]
