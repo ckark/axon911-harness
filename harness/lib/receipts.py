@@ -16,6 +16,7 @@ from .constants import (
     STOP_LOOP_LIMIT,
 )
 from .ledger import LedgerError, append_record, current_state
+from .obligations import obligations_for
 from .path_selector import select_obligations
 from .plan_profile import active_profile, profile_from_state
 
@@ -403,6 +404,19 @@ def evaluate_gate(
     for obligation_id in required_obligation_ids:
         if obligation_id.startswith("review."):
             continue
+        if obligation_id.endswith(".docs-page") and changed_paths:
+            docs_paths = [
+                str(item.get("path") or "").rstrip("/")
+                for item in obligations_for(root)
+                if item.get("id") == obligation_id
+            ]
+            if any(
+                str(path).replace(os.sep, "/").startswith(docs_path + "/")
+                for path in changed_paths
+                for docs_path in docs_paths
+                if docs_path
+            ):
+                continue
         if root_path and (
             obligation_id.endswith(".rendered-evidence")
             or obligation_id.endswith(".rendered-evidence.before-after")

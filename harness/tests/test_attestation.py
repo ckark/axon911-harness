@@ -135,6 +135,19 @@ class AttestationTests(unittest.TestCase):
         )
         self.assertEqual(gate["permission"], "deny")
 
+    def test_changed_docs_page_satisfies_docs_page_obligation(self) -> None:
+        gate = evaluate_gate(
+            "axon911-frontend",
+            "wt",
+            "abc",
+            ["axon911-frontend.docs-page"],
+            "plan-1",
+            "T0",
+            changed_paths=["apps/docs/mdx/design/primitives/typography/api-dev.mdx"],
+            base=self.base,
+        )
+        self.assertEqual(gate["permission"], "allow")
+
     def test_invalidate_drops_receipts_for_that_fingerprint(self) -> None:
         issue_verification_receipt(
             "personal-harness",
