@@ -34,6 +34,7 @@ async function loadStoryIndex(baseUrl) {
 
 function resolveStoryId(entries, storyRef, exportName = "Default") {
   const needle = String(storyRef || "").trim();
+  const canonical = (value) => String(value || "").toLowerCase().replace(/[\s_-]+/g, "");
   if (!needle) {
     throw new Error("missing story_id");
   }
@@ -43,8 +44,8 @@ function resolveStoryId(entries, storyRef, exportName = "Default") {
   const matches = Object.values(entries).filter((entry) => {
     if (entry.type !== "story") return false;
     if (entry.title === needle) return true;
-    const entryName = String(entry.name || entry.exportName || "");
-    if (`${entry.title}/${entryName}` === needle) return true;
+    const names = [entry.name, entry.exportName].filter(Boolean);
+    if (names.some((name) => canonical(`${entry.title}/${name}`) === canonical(needle))) return true;
     if (String(entry.title || "").endsWith(`/${needle}`)) return true;
     if (String(entry.title || "").endsWith(needle)) return true;
     return false;
