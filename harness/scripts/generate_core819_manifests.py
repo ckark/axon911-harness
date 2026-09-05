@@ -28,7 +28,7 @@ REFS = {
     "pr_26204": "f4fdcd672242794095a66dd31709628a38e967d8",
     "pr_26205": "bdb468a9edc0cf2e13eddc6db3a35a17d33bd8a6",
     "pr_26352": "12d496f29b5c5515724cd88690aaa9116121dcc4",
-    "pr_541": "67cf66aae752d6c29ecee19c3091c99947c4d2fb",
+    "pr_541": "7329e5364ab871196e0d7fdadb00eb51c14babd3",
     "harness_head": "3571938455e6d88a39ea254d998c31a36b1d977d",
 }
 
