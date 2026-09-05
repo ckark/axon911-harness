@@ -52,6 +52,10 @@ def begin_attempt(
     if entry.get("status") == "passed":
         return entry
     attempts = entry.setdefault("attempts", [])
+    if idempotency_key:
+        for existing in reversed(attempts):
+            if existing.get("idempotency_key") == idempotency_key:
+                return existing
     if len(attempts) >= max_attempts:
         raise ExecutionStateError("phase %s exhausted attempts (%d)" % (phase, max_attempts))
     attempt = {

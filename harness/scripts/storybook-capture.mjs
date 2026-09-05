@@ -43,6 +43,8 @@ function resolveStoryId(entries, storyRef, exportName = "Default") {
   const matches = Object.values(entries).filter((entry) => {
     if (entry.type !== "story") return false;
     if (entry.title === needle) return true;
+    const entryName = String(entry.name || entry.exportName || "");
+    if (`${entry.title}/${entryName}` === needle) return true;
     if (String(entry.title || "").endsWith(`/${needle}`)) return true;
     if (String(entry.title || "").endsWith(needle)) return true;
     return false;
