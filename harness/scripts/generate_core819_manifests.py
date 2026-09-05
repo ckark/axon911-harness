@@ -283,10 +283,14 @@ def main() -> int:
             },
             "axon911-frontend": {
                 "base_oid": REFS["axon_trunk"],
-                "allowed_paths": ["packages/ui-core/src/components/typography/styles.scss"],
+                "allowed_paths": [
+                    "apps/docs/mdx/design/primitives/typography/api-dev.mdx",
+                    "packages/ui-core/src/components/typography/styles.scss",
+                ],
                 "required_paths": ["packages/ui-core/src/components/typography/styles.scss"],
                 "mirror_intent": "",
                 "evidence_states": {
+                    "apps/docs/mdx/design/primitives/typography/api-dev.mdx": "none",
                     "packages/ui-core/src/components/typography/styles.scss": "before-after",
                 },
             },
