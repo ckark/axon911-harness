@@ -124,16 +124,13 @@ def triggered_obligations(root_id: str, changed_paths: Sequence[str]) -> List[Ob
 
 
 def required_ids(root_id: str, changed_paths: Sequence[str], user_visible: bool, existing_surface: bool) -> List[str]:
-    ids = [item["id"] for item in triggered_obligations(root_id, changed_paths)]
-    if user_visible:
-        rendered = "%s.rendered-evidence" % root_id
-        if rendered not in ids and obligations_for(root_id):
-            ids.append(rendered)
-    if not user_visible:
-        ids = [item for item in ids if not item.endswith(".rendered-evidence")]
-    if user_visible and existing_surface:
-        ids.append("%s.rendered-evidence.before-after" % root_id)
-    return ids
+    """Return path-triggered IDs. Visibility flags do not invent screenshot gates."""
+    _ = (user_visible, existing_surface)
+    return [
+        item["id"]
+        for item in triggered_obligations(root_id, changed_paths)
+        if not item["id"].endswith(".rendered-evidence")
+    ]
 
 
 def product_ui_enabled(root_id: str) -> bool:

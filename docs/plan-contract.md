@@ -118,7 +118,7 @@ manifest JSON before implementation:
 | `target_roots.<root>.base_oid` | Pinned baseline commit |
 | `target_roots.<root>.allowed_paths` | Declared scope globs |
 | `target_roots.<root>.required_paths` | Paths that must change |
-| `target_roots.<root>.evidence_states` | Per-glob evidence mode: `none`, `after`, `before-after` |
+| `target_roots.<root>.evidence_states` | Per-glob evidence mode: `none` (visual parity; default for token swaps), `after`, `before-after` |
 | `budgets` | Session turn and context limits |
 
 Register with:
@@ -140,8 +140,9 @@ migration-evidence manifest. Each row declares one capture kind:
 evidence state: `changed`, `expected_unchanged`, `new_visible`, or
 `static_only`.
 
-- `changed` and `expected_unchanged` require distinct Before and After capture
-  identities.
+- `changed` requires distinct Before and After capture identities.
+- `expected_unchanged` is visual parity (token swap, architecture-only). It
+  creates no screenshot obligation. Optional captures, if present, must match.
 - `new_visible` requires machine-checked absence on the baseline and an After.
 - `static_only` uses `not-applicable` and names its verification command.
 

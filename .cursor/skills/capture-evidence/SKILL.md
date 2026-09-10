@@ -34,9 +34,11 @@ For **migration PRs**, use a per-change manifest and the migration evidence comm
 1. Author a schema v4 manifest with one entry per changed consumer or state.
    Each entry declares `capture_kind` (`storybook`, `product-route`, or
    `not-applicable`) and `evidence_state` (`changed`, `expected_unchanged`,
-   `new_visible`, or `static_only`). Storybook rows name the exact committed
-   story ID and import path. Product-route rows name the product entrypoint,
-   route, deterministic scenario adapter, and migration-state assertions.
+   `new_visible`, or `static_only`). Declare `expected_unchanged` for token
+   swaps and architecture-only work that should look the same; those rows do
+   not capture or gate push. Storybook rows name the exact committed story ID
+   and import path. Product-route rows name the product entrypoint, route,
+   deterministic scenario adapter, and migration-state assertions.
 2. Stop the opposite role's process, clear generated role caches, switch the
    normal checkout to the exact execution-pinned commit, and prove it clean.
    Capture **Before** only from pinned live trunk and **After** only from the
@@ -94,8 +96,11 @@ Embed hosted image URLs in the manifest (`before_url` / `after_url`) when Chroma
 
 ## Rules
 
-- New visible surface → after-state evidence. Changed existing surface →
-  before-and-after.
+- Visual evidence is Chromatic-style: required only when pixels should change.
+- New visible surface → after-state evidence. Changed existing surface with a
+  declared visual delta → before-and-after.
+- Token swap / architecture-only / expected unchanged → no image, receipt, or
+  attachment slot. Optional captures, if taken, must hash-match.
 - `not-applicable` has no image, receipt, or attachment slot; it requires
   machine-checked baseline absence or static-only verification.
 - Synthetic JSX, CSS, stories, bundles, rendered markup, and fixture injection

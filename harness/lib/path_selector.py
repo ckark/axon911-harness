@@ -238,18 +238,20 @@ def select_obligations(
             triggered.add(oid)
             required.add(oid)
 
-    if user_visible:
-        rendered = "%s.rendered-evidence" % root_id
-        if obligations_for(root_id) and rendered not in required:
-            if not any(item.endswith(".rendered-evidence") for item in required):
-                required.add(rendered)
+    # Chromatic-style: inferred visibility is not a visual-delta declaration.
+    # Screenshots are required only when evidence_states say after/before-after
+    # or a migration row declares changed/new_visible.
+    required = {
+        item
+        for item in required
+        if not item.endswith(".rendered-evidence")
+        and not item.endswith(".rendered-evidence.before-after")
+    }
     if evidence_states:
         needs_any, needs_before_after, all_none = _evidence_flags_from_states(
             normalized_paths,
             evidence_states,
         )
-        required = {item for item in required if not item.endswith(".rendered-evidence")}
-        required.discard("%s.rendered-evidence.before-after" % root_id)
         if all_none:
             user_visible = False
         elif needs_any:
@@ -260,12 +262,6 @@ def select_obligations(
             if needs_before_after:
                 required.add("%s.rendered-evidence.before-after" % root_id)
                 existing_surface = True
-    elif not user_visible:
-        required = {item for item in required if not item.endswith(".rendered-evidence")}
-    if not user_visible and not evidence_states:
-        required = {item for item in required if not item.endswith(".rendered-evidence")}
-    if user_visible and existing_surface and not evidence_states:
-        required.add("%s.rendered-evidence.before-after" % root_id)
 
     migration_manifest_path = _migration_manifest_path(profile, root_id)
     if migration_manifest_path:

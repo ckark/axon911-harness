@@ -54,6 +54,9 @@ REQUIRED_STORYBOOK_CAPTURE_KEYS = ("story_id", "theme", "brand", "viewport", "st
 REQUIRED_ROUTE_CAPTURE_KEYS = ("route", "entrypoint", "scenario_id", "theme", "brand", "viewport", "state")
 CAPTURE_KINDS = ("storybook", "product-route", "not-applicable")
 EVIDENCE_STATES = ("changed", "expected_unchanged", "new_visible", "static_only")
+# Screenshots are Chromatic-style: required only when a visual delta is declared.
+VISUAL_DELTA_EVIDENCE_STATES = ("changed", "new_visible")
+PARITY_EVIDENCE_STATES = ("expected_unchanged", "static_only")
 CURSOR_SUMMARY_MARKER = "<!-- CURSOR_SUMMARY"
 
 
@@ -108,7 +111,7 @@ def validate_manifest_shape(manifest: Mapping[str, Any]) -> List[str]:
         capture_kind = str(item.get("capture_kind") or "storybook").strip()
         if capture_kind not in CAPTURE_KINDS:
             errors.append("manifest-change-%s-invalid-capture-kind" % change_id)
-        if capture_kind == "not-applicable":
+        if capture_kind == "not-applicable" or evidence_state in PARITY_EVIDENCE_STATES:
             continue
         capture = item.get("capture")
         if not isinstance(capture, dict):
@@ -134,6 +137,9 @@ def migration_obligation_ids(root: str, manifest: Mapping[str, Any]) -> List[str
         if item_root != root:
             continue
         if str(item.get("capture_kind") or "") == "not-applicable":
+            continue
+        evidence_state = str(item.get("evidence_state") or "changed").strip()
+        if evidence_state not in VISUAL_DELTA_EVIDENCE_STATES:
             continue
         ids.append(obligation_id_for_change(root, str(item["change_id"])))
     return sorted(ids)
@@ -205,6 +211,12 @@ def revalidate_migration_manifest(
         evidence_state = str(item.get("evidence_state") or "changed")
         capture_kind = str(item.get("capture_kind") or "storybook")
         if capture_kind == "not-applicable" or evidence_state == "static_only":
+            continue
+        if evidence_state == "expected_unchanged":
+            before_hash = str((found.get(EVIDENCE_BEFORE) or {}).get("artifact_hash") or "")
+            after_hash = str((found.get(EVIDENCE_AFTER) or {}).get("artifact_hash") or "")
+            if before_hash and after_hash and before_hash != after_hash:
+                errors.append("expected-unchanged-hash-differs:%s" % change_id)
             continue
         required_kinds = [EVIDENCE_BEFORE, EVIDENCE_AFTER]
         if evidence_state == "new_visible":
@@ -280,6 +292,7 @@ def revalidate_migration_manifest(
             and after_hash
             and before_hash == after_hash
             and str(item.get("expected_visual_result") or "") != "unchanged"
+            and evidence_state != "expected_unchanged"
         ):
             errors.append("before-after-hash-identical:%s" % change_id)
         errors.extend(_url_binding_errors(item, found))

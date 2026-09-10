@@ -37,7 +37,9 @@ Local receipts are cooperative assurance, not tamper-proof enforcement.
    python3 harness/cli.py attest --root <root> --obligation-id <id> --plan-hash <sha256> -- <argv>
    ```
 
-4. Capture rendered evidence via `/capture-evidence` when user-visible surfaces changed, then register artifacts:
+4. Capture rendered evidence via `/capture-evidence` only when the plan
+   declares a visual delta (`after`, `before-after`, or migration `changed` /
+   `new_visible`). Token-swap and `expected_unchanged` work skip this step:
 
    ```bash
    python3 harness/cli.py record-evidence --root <root> --obligation-id <id> \
@@ -50,7 +52,7 @@ Local receipts are cooperative assurance, not tamper-proof enforcement.
    python3 harness/cli.py verify --root <root> --json --explain
    ```
 
-6. For user-visible migration work with a migration manifest, run capture preflight and issue visual acceptance from a fresh reviewer session:
+6. For declared visual-delta migration work, run capture preflight and issue visual acceptance from a fresh reviewer session:
 
    ```bash
    python3 harness/cli.py capture-ready --root <root> --kind after

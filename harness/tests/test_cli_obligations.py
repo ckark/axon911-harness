@@ -64,6 +64,58 @@ class PlanProfileTests(unittest.TestCase):
             "existing-visible",
         )
 
+    def test_parity_evidence_state_skips_screenshots(self) -> None:
+        profile = {
+            "profiled": True,
+            "strict": True,
+            "scope": ["turbo/apps/dispatch/**"],
+            "path_surfaces": {},
+            "evidence_states": {
+                "turbo/apps/dispatch/src/modules/app-template/AppNavbar/**": "none"
+            },
+        }
+        selection = select_obligations(
+            "prepared911",
+            ["turbo/apps/dispatch/src/modules/app-template/AppNavbar/AppNavbar.tsx"],
+            profile,
+            "T2",
+            family="git-push",
+        )
+        required = selection["required_obligation_ids"]
+        self.assertNotIn("prepared911.rendered-evidence", required)
+        self.assertNotIn("prepared911.rendered-evidence.before-after", required)
+
+    def test_inferred_visibility_without_declaration_skips_screenshots(self) -> None:
+        selection = select_obligations(
+            "prepared911",
+            ["turbo/apps/dispatch/src/modules/app-template/AppNavbar/AppNavbar.tsx"],
+            {},
+            "T0",
+            family="git-push",
+        )
+        required = selection["required_obligation_ids"]
+        self.assertNotIn("prepared911.rendered-evidence", required)
+        self.assertNotIn("prepared911.rendered-evidence.before-after", required)
+
+    def test_declared_before_after_still_requires_screenshots_on_push(self) -> None:
+        profile = {
+            "profiled": True,
+            "strict": True,
+            "scope": ["packages/ui-core/**"],
+            "path_surfaces": {},
+            "evidence_states": {"packages/ui-core/**": "before-after"},
+        }
+        selection = select_obligations(
+            "axon911-frontend",
+            ["packages/ui-core/src/components/typography/styles.scss"],
+            profile,
+            "T0",
+            family="git-push",
+        )
+        required = selection["required_obligation_ids"]
+        self.assertIn("axon911-frontend.rendered-evidence", required)
+        self.assertIn("axon911-frontend.rendered-evidence.before-after", required)
+
     def test_commit_family_defers_rendered_evidence(self) -> None:
         profile = {
             "profiled": True,

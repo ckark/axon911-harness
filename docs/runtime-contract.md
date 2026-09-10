@@ -141,13 +141,13 @@ Prepared911 and Axon each have independent IDs:
 - `ui-components.generated.ts` currency
 - docs API-registry currency
 - corresponding `ui-*` docs-page updates
-- rendered evidence
+- rendered evidence, only when the plan declares a visual delta
 
 Prepared911 `consumer-only` mirror intent suppresses Prepared docs-registry and
 docs-page obligations while retaining allowlist and surface-declared evidence.
-Axon `packages/ui-*` remains authoritative; visibility comes from the declared
-surface class (`non-visible`, `new-visible`, `existing-visible`), not from path
-triggers alone.
+Axon `packages/ui-*` remains authoritative. Screenshot gates follow declared
+evidence mode (`none` / `after` / `before-after`), not inferred visibility.
+Token swaps use `none` or migration `expected_unchanged`.
 
 ## Event handling
 
@@ -189,8 +189,9 @@ commands.
 
 For strict migrations, commit preflight requires plan conformance and
 nonvisual obligations but defers rendered-evidence and visual-acceptance
-obligations. Push preflight requires those receipts against the resulting
-commit identity.
+obligations. Push preflight requires those receipts only when the plan
+declares a visual delta (`after`, `before-after`, or migration `changed` /
+`new_visible`). Token-swap and `expected_unchanged` rows do not gate push.
 
 ## Recovery command
 
@@ -224,7 +225,8 @@ artifact hashes. A Before must match the execution-pinned trunk; an After must
 match the exact PR head and prove that a changed production path produced the
 asserted migration state.
 
-User-visible migration work requires one fresh-context visual acceptance receipt
-(`visual.acceptance`) issued by a reviewer session distinct from the authoring
-session. The report must pass every manifest `change_id`; per-change `FAIL`
-verdicts block ship even when the overall verdict is `PASS`.
+Declared visual-delta migration work requires one fresh-context visual
+acceptance receipt (`visual.acceptance`) issued by a reviewer session distinct
+from the authoring session. The report must pass every visual-delta
+`change_id`; per-change `FAIL` verdicts block ship even when the overall
+verdict is `PASS`. Parity rows do not require this receipt.

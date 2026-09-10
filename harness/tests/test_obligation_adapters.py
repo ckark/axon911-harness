@@ -51,9 +51,10 @@ class ObligationAdapterTests(unittest.TestCase):
         paths = ["apps/dispatch/src/guides.tsx"]
         self.assertFalse(triggered_obligations("prepared911", paths))
 
-    def test_rendered_evidence_before_after_for_existing_surface(self) -> None:
+    def test_visibility_flags_do_not_invent_screenshot_obligations(self) -> None:
         ids = required_ids("prepared911", ["turbo/packages/ui-core/src/button.tsx"], True, True)
-        self.assertIn("prepared911.rendered-evidence.before-after", ids)
+        self.assertNotIn("prepared911.rendered-evidence", ids)
+        self.assertNotIn("prepared911.rendered-evidence.before-after", ids)
 
     def test_non_visible_change_skips_rendered_evidence(self) -> None:
         ids = required_ids("prepared911", ["turbo/packages/ui-core/src/button.tsx"], False, False)

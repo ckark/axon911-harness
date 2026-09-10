@@ -130,13 +130,20 @@ Do not leave sibling call sites untouched after autocorrecting one.
 ## Lean execution sequence (user-visible migrations)
 
 1. Freeze and register the accepted plan (`register-plan --manifest`).
-2. Capture baseline states once from the pinned `base_oid`.
-3. Implement the shared contract plus one representative real consumer.
-4. Run focused type, semantic DOM, and rendered-product checks for that sentinel.
-5. Stop and correct the contract if the sentinel fails; do not begin the sweep.
-6. Migrate remaining consumers and run affected checks.
-7. Stage final content, run `capture-ready` (alias `execution-preflight`), batch after captures once.
-8. Run one fresh-context visual acceptance pass; then commit, push, and publish hosted evidence.
+2. Declare per-path evidence mode. Default is visual parity (`none` /
+   `expected_unchanged`): token swaps and architecture-under-the-hood work
+   that should look the same do not capture screenshots.
+3. Capture baselines only for rows that declare a visual delta (`after`,
+   `before-after`, or migration `changed` / `new_visible`).
+4. Implement the shared contract plus one representative real consumer.
+5. Run focused type, semantic DOM, and (when a delta is declared) rendered
+   product checks for that sentinel.
+6. Stop and correct the contract if the sentinel fails; do not begin the sweep.
+7. Migrate remaining consumers and run affected checks.
+8. When a visual delta is declared: stage final content, run `capture-ready`
+   (alias `execution-preflight`), batch after captures once, and run one
+   fresh-context visual acceptance pass. Then commit, push, and publish hosted
+   evidence.
 
 `capture-ready` blocks capture when the strict profile is missing, required paths
 are untouched, nonvisual verification receipts are missing, the after subject
@@ -146,28 +153,32 @@ over budget.
 Definitive captures use schema v4 receipts. Storybook receipts bind an exact
 committed product story; product-route receipts bind an exact product
 entrypoint, route, scenario adapter, and migration-state assertion.
-`not-applicable` rows produce no image or attachment slot. Both executable
-capture kinds rederive the source commit and tree from Git, require a clean
-normal checkout, and reject opposite-role cache, process, module, stylesheet,
-or artifact reuse.
+`not-applicable` and parity rows produce no image or attachment slot. Both
+executable capture kinds rederive the source commit and tree from Git, require a
+clean normal checkout, and reject opposite-role cache, process, module,
+stylesheet, or artifact reuse.
 
-## Rendered evidence for anything a user sees
+## Rendered evidence only when pixels should change
 
-Anything an operator or user sees rendered — UI components, docs pages, modal
-flows, Storybook variants — ships with rendered evidence of the after state
-(before-and-after when changing something that already exists):
+Treat screenshots like Chromatic: require them only when the change is expected
+to yield a visual difference. Touching a user-visible surface is not enough.
 
-- Storybook story
-- Docs page
-- Playwright screenshot or trace
+- **Parity / token swap / architecture-only.** Declare `none` on the execution
+  manifest glob, or `expected_unchanged` / `static_only` on the migration row.
+  No before/after artifacts, hosted URLs, or `visual.acceptance` receipt.
+  Optional captures, if present, must hash-match.
+- **Visual delta.** Declare `after` (new surface) or `before-after` (changed
+  existing surface), or a migration row with `changed` / `new_visible`. Those
+  rows need Storybook, docs, or Playwright artifacts bound to the tree.
 
-**Migration PRs** require a labeled before/after pair for every changed consumer
-or visually distinct state. Use `python3 harness/cli.py migration-evidence verify`
-against a manifest under `.harness/runtime/evidence/`; embed hosted URLs in the PR
-body; never commit evidence binaries to the product branch.
+**Migration PRs** require a labeled before/after pair only for declared visual
+deltas. Use `python3 harness/cli.py migration-evidence verify` against a
+manifest under `.harness/runtime/evidence/`; embed hosted URLs in the PR body;
+never commit evidence binaries to the product branch.
 
-If the surface cannot be reached live, render against realistic data and say
-so. A green typecheck alone is not rendered evidence.
+If a declared-delta surface cannot be reached live, render against realistic
+data and say so. A green typecheck alone is not rendered evidence for a
+declared visual delta.
 
 ## Standing obligations
 
@@ -204,7 +215,8 @@ A task is done only when all of the following are true:
 
 1. Per-root verification commands for affected callers have been run and their
    output pasted or summarized with exit status.
-2. Rendered evidence is attached for any user-visible change.
+2. Rendered evidence is attached for every declared visual delta. Parity,
+   token-swap, and architecture-only work must not be blocked on screenshots.
 3. Every instance of the changed pattern is fixed at the shared layer, or
    explicitly deferred with a reason.
 4. Generated artifacts named by the plan or standing obligations are current.

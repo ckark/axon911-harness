@@ -94,6 +94,32 @@ class MigrationEvidenceTests(unittest.TestCase):
         )
         self.assertEqual(migration_obligation_ids("personal-harness", self.manifest), [])
 
+    def test_parity_rows_do_not_create_screenshot_obligations(self) -> None:
+        manifest = {
+            "schema_version": 3,
+            "plan_hash": "parity",
+            "changes": [
+                {
+                    "change_id": "token-swap",
+                    "title": "Navbar token swap",
+                    "root": "prepared911",
+                    "evidence_state": "expected_unchanged",
+                    "capture_kind": "product-route",
+                    "source_paths": ["turbo/apps/dispatch/src/modules/app-template/AppNavbar/AppNavbar.tsx"],
+                },
+                {
+                    "change_id": "static-check",
+                    "title": "Static only",
+                    "root": "prepared911",
+                    "evidence_state": "static_only",
+                    "capture_kind": "not-applicable",
+                    "source_paths": ["turbo/apps/dispatch/package.json"],
+                },
+            ],
+        }
+        self.assertEqual(migration_obligation_ids("prepared911", manifest), [])
+        self.assertEqual(validate_manifest_shape(manifest), [])
+
     def test_record_and_revalidate_change_pair(self) -> None:
         obligation = obligation_id_for_change("prepared911", "share-banner-notes")
         record_evidence(

@@ -127,8 +127,11 @@ Two flags matter in day-to-day use:
   python3 harness/cli.py attest --root <root> --obligation-id push.oid -- git rev-parse HEAD
   ```
 - **Editing `packages/ui-*` triggers axon obligations** — `ui-allowlist`,
-  `docs-registry`, `docs-page`, `rendered-evidence`. Satisfy them by actually
-  running the real check and attesting it, not by attesting something vacuous.
+  `docs-registry`, `docs-page`. `rendered-evidence` is added only when the
+  plan declares a visual delta (`after` / `before-after`, or a migration row
+  with `changed` / `new_visible`). Token swaps declare `none` /
+  `expected_unchanged` and do not need screenshots. Satisfy required checks
+  by running the real command, not a vacuous attestation.
 
 ## Verification blind spots the harness exists to cover
 
