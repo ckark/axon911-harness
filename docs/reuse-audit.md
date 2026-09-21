@@ -16,6 +16,7 @@ harness critics.
 | Claude Code plugin tree | Removed; Cursor-only |
 | `harness/scope_probe.py` | Documented answer in `docs/workspace-rule.md` |
 | Transparent attest rewrite | Removed with Claude Code |
+| `evidence-verifier` agent | Unused; stop-gate receipts own completion proof |
 
 ## Kept (no product substitute)
 
@@ -25,7 +26,7 @@ harness critics.
 | Plan conformance | Silent scope drift |
 | Mirror edit warnings | CORE-754 authority |
 | `design-system-critic` | Cross-root blast radius + authority |
-| `evidence-verifier` | INCONCLUSIVE stop gate judgment |
+| `harness/lib/jev*.py` | Bounded semantic routing; deterministic proof stays in Python |
 | `harness/cli.py tier` | Computed blast radius for trigger list |
 
 ## Delegated (use at runtime, not reimplemented)

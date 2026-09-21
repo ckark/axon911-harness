@@ -97,7 +97,8 @@ python3 harness/cli.py <command>
 | `session-status` / `handoff` | Privacy-safe session lifecycle |
 | `bundle` | Cross-root publication manifest create/verify |
 | `verify --explain` | Mechanical coverage with recovery categories |
-| `issue-review-receipt` | Record a review at a tier |
+| `issue-review-receipt` | Record a review at a tier after validating `--report` |
+| `jev` | TypeSafe Jev routing and bounded semantic checks (`smoke`, `route-task`, …) |
 | `benchmark` | Ledger/gate performance check |
 
 Two flags matter in day-to-day use:

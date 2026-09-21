@@ -67,6 +67,25 @@ Follow evidence-capture Phase 2a rules:
 2. Capture the **working-tree snapshot**.
 3. State one scope decision: `committed-only` or `committed-plus-delta`.
 
+## Phase 2b: Jev plan semantics (optional)
+
+After mechanical ref and scope checks, run bounded Jev assessments on sanitized
+excerpts (never raw `.env`, credentials, or full transcripts):
+
+```bash
+python3 harness/cli.py jev assess-plan --plan <plan-file> --json
+```
+
+Treat Jev output as advisory. When `policy_action=fallback`, keep the existing
+LLM plan-check judgment for scope alignment and falsifiable claims.
+
+For each claim row after deterministic command verification:
+
+```bash
+python3 harness/cli.py jev check-claim \
+  --claim "<claim text>" --evidence "<bounded evidence excerpt>" --json
+```
+
 ## Phase 3: Verify the self-authored claim ledger
 
 Do **not** rebuild the ledger from scratch when the plan already carries one.

@@ -82,8 +82,9 @@ Local receipts are cooperative assurance, not tamper-proof enforcement.
 
    ```bash
    python3 harness/cli.py issue-review-receipt \
-     --root <root> --tier <tier> --plan-hash <sha256> --status PASS \
-     --critic design-system-critic
+     --root <root> --tier <tier> --plan-hash <sha256> \
+     --critic design-system-critic \
+     --report .harness/runtime/reports/design-system-critic-<fingerprint>.md
    ```
 
 9. For push: attest `push.oid`. For `gt submit`: attest `stack-oid-set`. If the

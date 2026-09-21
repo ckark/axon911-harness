@@ -20,15 +20,15 @@ Do not modify files or run mutating commands.
    - `.cursor/skills/implementation-check/SKILL.md`
    - `.cursor/skills/capture-evidence/SKILL.md`
    - `.cursor/agents/design-system-critic.md`
-   - `.cursor/agents/evidence-verifier.md`
    - `.cursor/hooks.json` and `.cursor/hooks/runtime_gate.py`
-   - `harness/cli.py` with `verify` and `cost` subcommands
+   - `harness/cli.py` with `verify`, `cost`, and `jev` subcommands
 5. Confirm deleted critics are absent:
    - no `review-adjudicator`, `implementation-verifier`, or multi-critic panel agents
 6. Confirm `docs/workspace-rule.md` documents mechanical-on / panel-off posture.
 7. Run `python3 harness/cli.py benchmark --json` (expect `history_independent: true`).
-8. Run `git status --short --branch` in each repository root (one command each).
-9. Confirm no files changed during the health check.
+8. Run `python3 harness/cli.py jev smoke --json` when `TYPESAFE_API_KEY` is configured (expect `policy_action=pass` or document fallback).
+9. Run `git status --short --branch` in each repository root (one command each).
+10. Confirm no files changed during the health check.
 
 ## Output
 

@@ -326,29 +326,42 @@ def cmd_review(argv: Sequence[str]) -> int:
     parser.add_argument("--tier", required=True)
     parser.add_argument("--critic", action="append", default=[])
     parser.add_argument("--plan-hash", default="")
+    parser.add_argument("--report", required=True)
     parser.add_argument("--status", default=STATUS_PASS)
     args = parser.parse_args(argv)
     current = snapshot(args.root, resolve_cli_root(args.root), plan_hash=args.plan_hash, plan_context_hash="")
     from lib.plan_profile import profile_from_state
 
     profile = profile_from_state(args.root, current["worktree_id"])
+    plan_hash = args.plan_hash or profile.get("plan_hash") or ""
     current = snapshot(
         args.root,
         resolve_cli_root(args.root),
-        plan_hash=args.plan_hash or profile.get("plan_hash") or "",
+        plan_hash=plan_hash,
         plan_context_hash=profile.get("plan_context_hash") or "",
     )
-    issue_review_receipt(
+    record = issue_review_receipt(
         args.root,
         current["worktree_id"],
         current["fingerprint"],
         args.tier,
         args.critic,
         args.status,
-        args.plan_hash,
+        plan_hash,
         plan_context_hash=profile.get("plan_context_hash") or "",
+        report_path=args.report,
     )
-    return 0
+    if record.get("validation_errors"):
+        json.dump(record, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 1
+    return 0 if record.get("status") == STATUS_PASS else 1
+
+
+def cmd_jev(argv: Sequence[str]) -> int:
+    from lib.jev_cli import cmd_jev as run_jev
+
+    return run_jev(argv)
 
 
 def cmd_benchmark(argv: Sequence[str]) -> int:
@@ -1263,6 +1276,7 @@ SUBCOMMANDS = {
     "attest": cmd_attest,
     "register-plan": cmd_register_plan,
     "issue-review-receipt": cmd_review,
+    "jev": cmd_jev,
     "benchmark": cmd_benchmark,
     "verify": cmd_verify,
     "preview-obligations": cmd_preview_obligations,

@@ -135,14 +135,31 @@ def issue_review_receipt(
     plan_hash: str,
     session_id: str = "",
     plan_context_hash: str = "",
+    report_path: str = "",
     base: Optional[str] = None,
 ) -> Dict[str, Any]:
+    from .review_reports import receipt_status_for_verdict, validate_review_report
+
     unique = []
     for critic in critic_ids:
         if critic not in unique:
             unique.append(critic)
     if len(unique) < 1:
         status = STATUS_BLOCKED
+    report_hash = ""
+    validation_errors: List[str] = []
+    if report_path:
+        validation_errors, verdict, report_hash = validate_review_report(
+            report_path,
+            expected_critic_ids=unique,
+            fingerprint=fingerprint,
+            plan_hash=plan_hash,
+            tier=tier,
+        )
+        if validation_errors:
+            status = STATUS_BLOCKED
+        elif verdict:
+            status = receipt_status_for_verdict(verdict)
     record = {
         "kind": "review_receipt",
         "root": root,
@@ -157,6 +174,11 @@ def issue_review_receipt(
         "critic_id": ",".join(unique),
         "receipt_id": "%s:review:%s" % (root, fingerprint[:12]),
     }
+    if report_path:
+        record["report_path"] = report_path
+        record["report_hash"] = report_hash
+    if validation_errors:
+        record["validation_errors"] = validation_errors
     return append_record(record, base=base)
 
 

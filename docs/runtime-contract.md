@@ -74,8 +74,8 @@ against the post-command state.
 - The dispatcher is the only ledger writer.
 - The attesting wrapper is the only verification-receipt issuer.
 - `/implementation-check` is the only review-receipt issuer after validating
-  critic identity, report contract, tier, verdict, plan hash, and final
-  fingerprint.
+  critic identity, on-disk report schema, tier, verdict, plan hash, report
+  hash, and final fingerprint via `issue-review-receipt --report`.
 - A `register-plan` record selects the active plan hash, tier, and optional
   atomic plan profile (scope, `base_oid`, Prepared mirror intent, per-path
   surface class). The profile's canonical hash binds fingerprints and receipts;

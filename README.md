@@ -147,6 +147,27 @@ scope=<optional constraints>
 Formal review is read-only. Applying adjudicated fixes is a separate task and
 must satisfy `docs/implementation-contract.md`.
 
+## TypeSafe Jev (bounded judgments)
+
+The harness calls TypeSafe Jev over `POST https://api.typesafe.ai/v1/systemone`
+using Python 3.9 stdlib HTTP. Configure `TYPESAFE_API_KEY` (or the macOS Keychain
+item `typesafe-ai-api-key`). The key is never printed or persisted in ledgers.
+
+```bash
+python3 harness/cli.py jev smoke --json
+python3 harness/cli.py jev route-task --request "add a remote module" --json
+```
+
+Subcommands: `route-task`, `assess-plan`, `check-claim`, `assess-change`,
+`rank-context`, `route-review`, `check-findings`, `assess-command`, and `eval`.
+Deterministic proof (hashes, Git state, schemas, receipts, tests) stays
+authoritative. Jev runs in **shadow mode** for semantic tier risk, visibility, and
+unknown shell commands until labeled evals promote a question set; on API failure
+or low confidence the harness falls back to the existing LLM or human path.
+
+Observations append to `.harness/runtime/jev-observations.jsonl` only (not indexed
+gate state). Disable with `HARNESS_JEV_RECORD=0`.
+
 ## Maintenance
 
 - Keep Prepared911-specific coding conventions in the Prepared911 repository.

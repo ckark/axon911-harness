@@ -16,6 +16,31 @@ the user explicitly requests it.
 2. Read `docs/review-contract.md` and `docs/routing-matrix.md`.
 3. Run `python3 harness/cli.py tier --root <root> --json` if tier is unknown.
 
+## Jev routing (before dispatch)
+
+Run batched Jev review routing on trigger facts only (changed-path summary,
+tier predicate, auth/privacy flags). Do not send full diffs or secrets.
+
+```bash
+python3 harness/cli.py jev route-review \
+  --fact tier=T2 --fact ui_packages_changed=true --json
+```
+
+When Jev returns `policy_action=fallback`, dispatch the full default panel below.
+Screen context passages before critic dispatch:
+
+```bash
+python3 harness/cli.py jev rank-context --purpose review --passage "id=text" --json
+```
+
+After critics return findings, classify each finding:
+
+```bash
+python3 harness/cli.py jev check-findings --file .harness/runtime/reports/<critic>-<fingerprint>.md --json
+```
+
+Uncertain classifications stay with the human reviewer.
+
 ## Panel (at most one bespoke critic)
 
 Dispatch **in one foreground batch**, never backgrounded:
@@ -41,6 +66,7 @@ only. Surviving findings go in the PR body test plan.
 
 Run `/implementation-check` to issue a review receipt when `HARNESS_REVIEW_MODE`
 is `on-request` or `always`. With default `off`, the receipt is optional but
-still recorded when this skill completes.
+still recorded when this skill completes. Receipts require a validated on-disk
+report via `issue-review-receipt --report`.
 
 Do not implement corrections in this skill.

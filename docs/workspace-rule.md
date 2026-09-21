@@ -25,6 +25,23 @@ prepared911 remains authoritative for its own application code.
 Each repository's own instructions take precedence for work in that repository.
 The harness coordinates; it does not redefine project coding standards.
 
+## Task and skill routing (Jev)
+
+For broad or ambiguous action requests, run bounded TypeSafe Jev routing before
+loading large skill bodies or specialist context:
+
+```bash
+python3 harness/cli.py jev route-task --request "<sanitized user request>" --json
+```
+
+When Jev returns `policy_action=fallback` or `decision` is inconclusive, use the
+normal LLM path. Jev never overrides deterministic hooks, receipts, hashes, or
+shell grammar for known Git/Graphite commands.
+
+Set `HARNESS_JEV_RECORD=0` to skip local Jev observation append. Semantic tier,
+visibility, and unknown-command promotion stay in shadow mode until labeled evals
+pass; see `README.md`.
+
 ## Before editing
 
 Identify the target root, then read that root's own `AGENTS.md`. axon911-frontend
