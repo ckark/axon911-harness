@@ -25,22 +25,43 @@ prepared911 remains authoritative for its own application code.
 Each repository's own instructions take precedence for work in that repository.
 The harness coordinates; it does not redefine project coding standards.
 
-## Task and skill routing (Jev)
+## Task and skill routing (Jev) — required
 
-For broad or ambiguous action requests, run bounded TypeSafe Jev routing before
-loading large skill bodies or specialist context:
+Routing is **not optional**. Before loading any skill body or specialist context
+for an action request, run:
 
 ```bash
 python3 harness/cli.py jev route-task --request "<sanitized user request>" --json
 ```
 
-When Jev returns `policy_action=fallback` or `decision` is inconclusive, use the
-normal LLM path. Jev never overrides deterministic hooks, receipts, hashes, or
-shell grammar for known Git/Graphite commands.
+The roster covers every skill in all four roots, keyed `<root>#<skill>`. Inspect
+it with `jev list-skills`.
 
-Set `HARNESS_JEV_RECORD=0` to skip local Jev observation append. Semantic tier,
-visibility, and unknown-command promotion stay in shadow mode until labeled evals
-pass; see `README.md`.
+Then follow the result:
+
+- `policy_action=route` — load the named skill and no others. Loading a
+  different skill instead requires stating why in your response.
+- `policy_action=fallback` — routing abstained (`no_match`, low confidence, or
+  API failure). Pick the skill yourself as before. Abstention is a valid
+  outcome, not a failure.
+
+**Exempt** (skip routing): pure questions with no file edits, requests that name
+a skill or slash command explicitly, and continuations of work already routed in
+this session.
+
+Skipping routing on a non-exempt request is a contract violation.
+`/harness-health-check` flags it by reading recorded routing observations:
+
+```bash
+python3 harness/cli.py jev routing-status --json
+```
+
+Jev never overrides deterministic hooks, receipts, hashes, or shell grammar for
+known Git/Graphite commands. Semantic tier, visibility, and unknown-command
+decisions stay in shadow mode until labeled evals pass; see `README.md`.
+
+Leave observation recording on. `HARNESS_JEV_RECORD=0` suppresses the append and
+makes the session invisible to the routing check; use it only for tests.
 
 ## Before editing
 

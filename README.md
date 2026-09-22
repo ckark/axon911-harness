@@ -158,8 +158,16 @@ python3 harness/cli.py jev smoke --json
 python3 harness/cli.py jev route-task --request "add a remote module" --json
 ```
 
-Subcommands: `route-task`, `assess-plan`, `check-claim`, `assess-change`,
-`rank-context`, `route-review`, `check-findings`, `assess-command`, and `eval`.
+Subcommands: `route-task`, `list-skills`, `routing-status`, `assess-plan`,
+`check-claim`, `assess-change`, `rank-context`, `route-review`, `check-findings`,
+`assess-command`, and `eval`.
+
+**Task routing is required**, not advisory: run `route-task` before loading a
+skill body for any non-exempt action request. The roster spans all four roots
+(`<root>#<skill>`); `list-skills` prints it. `/harness-health-check` fails when
+`routing-status` reports `routing-absent`. See `docs/workspace-rule.md` for the
+exemptions.
+
 Deterministic proof (hashes, Git state, schemas, receipts, tests) stays
 authoritative. Jev runs in **shadow mode** for semantic tier risk, visibility, and
 unknown shell commands until labeled evals promote a question set; on API failure

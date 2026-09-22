@@ -32,42 +32,122 @@ EvaluateFn = Callable[..., Dict[str, Any]]
 SKILL_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", ".cursor", "skills")
 )
+# Roots publish skills under either directory, and axon911-frontend symlinks
+# `.cursor/skills` at `.agents/skills`, so scans dedupe by real path.
+SKILL_SUBDIRS = (
+    os.path.join(".cursor", "skills"),
+    os.path.join(".agents", "skills"),
+)
+# The Choice ceiling is 255 options; this stays well under it while covering
+# every skill across all roots today (119).
+MAX_ROSTER_CANDIDATES = 160
+SUMMARY_MAX_CHARS = 200
 
 
 def _summary_from_skill(path: str) -> str:
+    """Compact routing description: frontmatter `description`, else lead prose.
+
+    A skill's `description` is authored to say when the skill applies, so it is
+    both the strongest routing signal and far cheaper than the body.
+    """
     try:
         with open(path, encoding="utf-8") as handle:
             lines = handle.readlines()
     except OSError:
         return ""
+    description: List[str] = []
     body: List[str] = []
     in_front = False
+    seen_front = False
     for line in lines:
         if line.strip() == "---":
-            in_front = not in_front
+            if not seen_front:
+                in_front = True
+                seen_front = True
+            elif in_front:
+                in_front = False
             continue
-        if not in_front:
-            body.append(line.rstrip())
-            if len(body) >= 12:
+        if in_front:
+            if line.startswith("description:"):
+                description.append(line.split(":", 1)[1].strip().strip("\"'"))
+            elif description and line.startswith((" ", "\t")):
+                description.append(line.strip())
+            elif description:
                 break
-    return "\n".join(body).strip()
+        elif not line.startswith("#") and line.strip():
+            body.append(line.strip())
+            if len(body) >= 3:
+                break
+    text = " ".join(description) if description else " ".join(body)
+    return text[:SUMMARY_MAX_CHARS].strip()
 
 
-def load_skill_roster() -> List[Dict[str, str]]:
-    roster: List[Dict[str, str]] = []
-    if not os.path.isdir(SKILL_DIR):
-        return roster
-    for name in sorted(os.listdir(SKILL_DIR)):
-        skill_path = os.path.join(SKILL_DIR, name, "SKILL.md")
-        if not os.path.isfile(skill_path):
+def _skill_roots() -> Dict[str, str]:
+    """Root id to root path for every configured root, harness included."""
+    try:
+        from .paths import configured_roots
+
+        return configured_roots()
+    except Exception:
+        return {"personal-harness": os.path.dirname(SKILL_DIR)}
+
+
+def _scan_root_skills(root_id: str, root_path: str) -> List[Dict[str, str]]:
+    """Skills in one root.
+
+    A root may expose the same skill twice under genuinely different directories
+    (prepared911 links `.cursor/skills` at `.agent/skills` while `.agents/skills`
+    also exists). First match wins, so the copy Cursor itself loads is the one
+    offered as a candidate.
+    """
+    found: List[Dict[str, str]] = []
+    seen_dirs = set()
+    seen_names = set()
+    for subdir in SKILL_SUBDIRS:
+        base = os.path.join(root_path, subdir)
+        if not os.path.isdir(base):
             continue
-        roster.append(
-            {
-                "id": name,
-                "label": name,
-                "summary": _summary_from_skill(skill_path),
-            }
-        )
+        real_base = os.path.realpath(base)
+        if real_base in seen_dirs:
+            continue
+        seen_dirs.add(real_base)
+        for name in sorted(os.listdir(real_base)):
+            if name in seen_names:
+                continue
+            skill_path = os.path.join(real_base, name, "SKILL.md")
+            if not os.path.isfile(skill_path):
+                continue
+            seen_names.add(name)
+            found.append(
+                {
+                    "id": "%s#%s" % (root_id, name),
+                    "label": name,
+                    "root": root_id,
+                    "summary": _summary_from_skill(skill_path),
+                }
+            )
+    return found
+
+
+def load_skill_roster(root_ids: Optional[Sequence[str]] = None) -> List[Dict[str, str]]:
+    """Skill candidates across configured roots, keyed `<root>#<skill>`.
+
+    Over the cap, roots are interleaved so a large root cannot crowd the others
+    out of the candidate list.
+    """
+    roots = _skill_roots()
+    selected = [rid for rid in (root_ids or sorted(roots)) if rid in roots]
+    per_root = [_scan_root_skills(rid, roots[rid]) for rid in selected]
+    total = sum(len(group) for group in per_root)
+    if total <= MAX_ROSTER_CANDIDATES:
+        return [item for group in per_root for item in group]
+    roster: List[Dict[str, str]] = []
+    index = 0
+    while len(roster) < MAX_ROSTER_CANDIDATES and any(index < len(g) for g in per_root):
+        for group in per_root:
+            if index < len(group) and len(roster) < MAX_ROSTER_CANDIDATES:
+                roster.append(group[index])
+        index += 1
     return roster
 
 
@@ -123,12 +203,20 @@ def route_task(
     user_request: str,
     *,
     roster: Optional[Sequence[Mapping[str, str]]] = None,
+    root_ids: Optional[Sequence[str]] = None,
     transport: Optional[Transport] = None,
     mode: str = "live",
 ) -> Dict[str, Any]:
-    candidates = list(roster or load_skill_roster())
-    state = build_state(user_request=user_request, candidates=candidates)
-    criteria = {item["id"]: sanitize_excerpt(item.get("summary") or item["id"], limit=240) for item in candidates}
+    candidates = list(roster if roster is not None else load_skill_roster(root_ids))
+    if not candidates:
+        return inconclusive_decision(fallback_reason="empty-skill-roster", mode=mode)
+    # The roster rides in `criteria`; repeating it in the state would double the
+    # input tokens for no added signal.
+    state = build_state(user_request=user_request)
+    criteria = {
+        item["id"]: sanitize_excerpt(item.get("summary") or item["id"], limit=SUMMARY_MAX_CHARS)
+        for item in candidates
+    }
     criteria["no_match"] = "No listed skill is appropriate"
     rank_questions = {
         "best_skill": {
@@ -176,6 +264,8 @@ def route_task(
         "fallback_reason": "",
         "mode": mode,
         "confidence": confidence,
+        "skill_root": choice.split("#", 1)[0] if "#" in choice else "",
+        "skill": choice.split("#", 1)[-1],
         "jev": {"rank": result, "rerank": rerank},
     }
     _maybe_record("route-task", rerank, mode=mode, policy_action="route")
@@ -183,12 +273,22 @@ def route_task(
 
 
 def _skill_body(skill_id: str) -> str:
-    path = os.path.join(SKILL_DIR, skill_id, "SKILL.md")
-    try:
-        with open(path, encoding="utf-8") as handle:
-            return handle.read()
-    except OSError:
-        return ""
+    """Full SKILL.md text for a `<root>#<skill>` or bare skill id."""
+    if "#" in skill_id:
+        root_id, name = skill_id.split("#", 1)
+        root_path = _skill_roots().get(root_id, "")
+        candidates = [
+            os.path.join(root_path, subdir, name, "SKILL.md") for subdir in SKILL_SUBDIRS
+        ]
+    else:
+        candidates = [os.path.join(SKILL_DIR, skill_id, "SKILL.md")]
+    for path in candidates:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                return handle.read()
+        except OSError:
+            continue
+    return ""
 
 
 def assess_plan(plan_excerpt: str, *, transport: Optional[Transport] = None) -> Dict[str, Any]:

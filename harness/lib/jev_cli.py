@@ -13,11 +13,13 @@ from .judgments import (
     assess_plan,
     check_claim,
     check_findings,
+    load_skill_roster,
     rank_context,
     route_review,
     route_task,
 )
 from .jev import run_smoke
+from .jev_provenance import routing_status
 
 
 def _emit(payload: Mapping[str, Any], *, as_json: bool) -> int:
@@ -52,7 +54,13 @@ def cmd_jev(argv: Sequence[str]) -> int:
 
     route = sub.add_parser("route-task")
     route.add_argument("--request", required=True)
+    route.add_argument("--root", action="append", default=[])
     route.add_argument("--mode", default="live")
+
+    sub.add_parser("list-skills")
+
+    status = sub.add_parser("routing-status")
+    status.add_argument("--window-hours", type=int, default=24)
 
     plan = sub.add_parser("assess-plan")
     plan.add_argument("--plan", required=True)
@@ -90,7 +98,20 @@ def cmd_jev(argv: Sequence[str]) -> int:
         return _emit(run_smoke(), as_json=as_json)
 
     if args.command == "route-task":
-        return _emit(route_task(args.request, mode=args.mode), as_json=as_json)
+        return _emit(
+            route_task(args.request, root_ids=args.root or None, mode=args.mode),
+            as_json=as_json,
+        )
+
+    if args.command == "list-skills":
+        roster = load_skill_roster()
+        return _emit(
+            {"count": len(roster), "skills": [item["id"] for item in roster]},
+            as_json=as_json,
+        )
+
+    if args.command == "routing-status":
+        return _emit(routing_status(window_hours=args.window_hours), as_json=as_json)
 
     if args.command == "assess-plan":
         import os

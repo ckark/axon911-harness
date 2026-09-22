@@ -99,9 +99,114 @@ class JevJudgmentTests(unittest.TestCase):
         decision = route_task("hello world", roster=roster, transport=_mock_response)
         self.assertIn(decision["policy_action"], ("fallback", "route"))
 
+    def test_route_task_empty_roster_falls_back(self) -> None:
+        decision = route_task("anything", roster=[], transport=_mock_response)
+        self.assertEqual(decision["policy_action"], "fallback")
+        self.assertEqual(decision["fallback_reason"], "empty-skill-roster")
+
+    def test_route_task_reports_root_qualified_choice(self) -> None:
+        roster = [{"id": "axon911-frontend#add-remote", "label": "add-remote", "summary": "Scaffold a remote"}]
+
+        def pick_first(body: Mapping[str, Any]) -> Dict[str, Any]:
+            answers: Dict[str, Any] = {}
+            for qid, question in (body.get("questions") or {}).items():
+                if question.get("type") == "choice":
+                    answers[qid] = {
+                        "type": "choice",
+                        "choice": "axon911-frontend#add-remote",
+                        "probabilities": {"axon911-frontend#add-remote": 1.0},
+                        "confidence": 0.99,
+                    }
+                else:
+                    answers[qid] = {"type": "noul", "noul": 0.96}
+            return {"model": "jev-mock", "answers": answers, "usage": {}}
+
+        decision = route_task("add a remote", roster=roster, transport=pick_first)
+        self.assertEqual(decision["policy_action"], "route")
+        self.assertEqual(decision["skill_root"], "axon911-frontend")
+        self.assertEqual(decision["skill"], "add-remote")
+
     def test_assess_command_shadow(self) -> None:
         decision = assess_command("echo hi", transport=_mock_response, mode="shadow")
         self.assertIn(decision["policy_action"], ("allow", "fallback", "ask", "deny"))
+
+
+class JevRosterTests(unittest.TestCase):
+    def test_roster_spans_roots_and_dedupes_symlinks(self) -> None:
+        from lib.judgments import load_skill_roster
+
+        roster = load_skill_roster()
+        self.assertTrue(roster, "expected at least the harness skills")
+        ids = [item["id"] for item in roster]
+        self.assertEqual(len(ids), len(set(ids)), "symlinked skill dirs must dedupe")
+        self.assertTrue(all("#" in skill_id for skill_id in ids))
+        self.assertIn("personal-harness#plan-check", ids)
+
+    def test_roster_respects_root_filter(self) -> None:
+        from lib.judgments import load_skill_roster
+
+        roster = load_skill_roster(["personal-harness"])
+        self.assertTrue(roster)
+        self.assertTrue(all(item["root"] == "personal-harness" for item in roster))
+
+    def test_roster_interleaves_when_capped(self) -> None:
+        from lib import judgments
+
+        original = judgments.MAX_ROSTER_CANDIDATES
+        judgments.MAX_ROSTER_CANDIDATES = 4
+        try:
+            roster = judgments.load_skill_roster()
+        finally:
+            judgments.MAX_ROSTER_CANDIDATES = original
+        self.assertLessEqual(len(roster), 4)
+        if len(roster) == 4:
+            self.assertGreater(len({item["root"] for item in roster}), 1)
+
+
+class JevRoutingStatusTests(unittest.TestCase):
+    def test_absent_routing_is_flagged(self) -> None:
+        from lib.jev_provenance import routing_status
+
+        with tempfile.TemporaryDirectory() as tmp:
+            status = routing_status(base=tmp)
+            self.assertEqual(status["decision"], "routing-absent")
+            self.assertEqual(status["policy_action"], "flag")
+
+    def test_recent_routing_passes(self) -> None:
+        from lib.jev_provenance import record_observation, routing_status
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record_observation(
+                question_set="route-task",
+                question_set_hash="qhash",
+                state_hash="shash",
+                model="jev-mock",
+                outcome="ok",
+                mode="live",
+                policy_action="route",
+                answers_summary={},
+                base=tmp,
+            )
+            status = routing_status(base=tmp)
+            self.assertEqual(status["decision"], "routing-observed")
+            self.assertEqual(status["routed_in_window"], 1)
+
+    def test_stale_routing_is_flagged(self) -> None:
+        import time as time_module
+
+        from lib.jev_provenance import observations_path, routing_status
+
+        with tempfile.TemporaryDirectory() as tmp:
+            stale = {
+                "ts": int(time_module.time()) - (48 * 3600),
+                "question_set": "route-task",
+                "policy_action": "route",
+            }
+            with open(observations_path(tmp), "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(stale) + "\n")
+            status = routing_status(window_hours=24, base=tmp)
+            self.assertEqual(status["decision"], "routing-absent")
+            self.assertEqual(status["routing_total"], 1)
 
 
 class JevCliTests(unittest.TestCase):

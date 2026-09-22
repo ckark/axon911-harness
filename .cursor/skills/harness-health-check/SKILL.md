@@ -27,8 +27,16 @@ Do not modify files or run mutating commands.
 6. Confirm `docs/workspace-rule.md` documents mechanical-on / panel-off posture.
 7. Run `python3 harness/cli.py benchmark --json` (expect `history_independent: true`).
 8. Run `python3 harness/cli.py jev smoke --json` when `TYPESAFE_API_KEY` is configured (expect `policy_action=pass` or document fallback).
-9. Run `git status --short --branch` in each repository root (one command each).
-10. Confirm no files changed during the health check.
+9. Verify required task routing:
+   - `python3 harness/cli.py jev list-skills --json` resolves skills from more
+     than one root; a single-root roster means root paths are misconfigured.
+   - `python3 harness/cli.py jev routing-status --json` returns
+     `decision=routing-observed`. A `routing-absent` result is a **contract
+     violation**, not a warning: report it as `FAIL` with the observation count
+     and remediation (run `jev route-task` on the next non-exempt request, and
+     confirm `HARNESS_JEV_RECORD` is unset).
+10. Run `git status --short --branch` in each repository root (one command each).
+11. Confirm no files changed during the health check.
 
 ## Output
 

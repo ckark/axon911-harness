@@ -98,7 +98,9 @@ python3 harness/cli.py <command>
 | `bundle` | Cross-root publication manifest create/verify |
 | `verify --explain` | Mechanical coverage with recovery categories |
 | `issue-review-receipt` | Record a review at a tier after validating `--report` |
-| `jev` | TypeSafe Jev routing and bounded semantic checks (`smoke`, `route-task`, …) |
+| `jev route-task` | **Required** skill routing across all roots before loading a skill body |
+| `jev list-skills` / `jev routing-status` | Cross-root roster; routing-compliance signal for the health check |
+| `jev` (other) | Bounded semantic checks (`smoke`, `assess-plan`, `check-claim`, …) |
 | `benchmark` | Ledger/gate performance check |
 
 Two flags matter in day-to-day use:
