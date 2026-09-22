@@ -65,6 +65,10 @@ makes the session invisible to the routing check; use it only for tests.
 
 ## Before editing
 
+For **code authoring** (not research or Notion-only work), read
+[docs/ponytail.md](ponytail.md) after the target root's `AGENTS.md`. Repository
+instructions and harness contracts override the ponytail ladder.
+
 Identify the target root, then read that root's own `AGENTS.md`. axon911-frontend
 is flat (`packages/ui-*`, `apps/docs`, `apps/storybook`); prepared911 nests under
 `turbo/`. Never transfer one root's paths, commands, or conventions to another.

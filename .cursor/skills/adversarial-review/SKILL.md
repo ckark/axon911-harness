@@ -54,6 +54,17 @@ Dispatch **in one foreground batch**, never backgrounded:
 Do not dispatch performance-reliability or quality-accessibility critics.
 Use Storybook MCP `run-story-tests` and Bugbot for those concerns.
 
+## Optional complexity pass (ponytail-review)
+
+When the diff **adds new files, dependencies, or abstractions**, also run
+`.cursor/skills/ponytail-review/SKILL.md` (or route via
+`python3 harness/cli.py jev route-task --request "review diff for over-engineering" --json`).
+This pass is advisory only: `SIMPLIFY-###` findings at low or informational
+severity. Run `jev check-findings` on its report; fold surviving items into the
+PR test plan. It does **not** replace Bugbot, does not satisfy
+`issue-review-receipt`, and must not flag required tests, generated files, or
+docs obligations for deletion.
+
 There is no adjudicator. The human PR reviewer arbitrates.
 
 ## Evidence

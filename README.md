@@ -176,6 +176,14 @@ or low confidence the harness falls back to the existing LLM or human path.
 Observations append to `.harness/runtime/jev-observations.jsonl` only (not indexed
 gate state). Disable with `HARNESS_JEV_RECORD=0`.
 
+## Ponytail (minimum-code ladder)
+
+Vendored from [ponytail](https://github.com/DietrichGebert/ponytail) as adapted
+text in [docs/ponytail.md](docs/ponytail.md) and an optional complexity review
+skill (`ponytail-review`). Upstream Cursor hooks and global mode switching are
+**not** installed. Read the ladder before code authoring; repository `AGENTS.md`
+and harness contracts override it.
+
 ## Maintenance
 
 - Keep Prepared911-specific coding conventions in the Prepared911 repository.

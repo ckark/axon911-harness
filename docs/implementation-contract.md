@@ -7,7 +7,13 @@ first, then use that root's own instructions and verification commands.
 ## Resolve the root first
 
 Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, or
-`personal-harness` owns the change. axon911-frontend owns every
+`personal-harness` owns the change.
+
+When implementing (not reviewing only), apply the minimum-code ladder in
+[docs/ponytail.md](ponytail.md) after this contract and the target root's
+`AGENTS.md`. Harness and repository rules override ponytail.
+
+axon911-frontend owns every
 `@prepared/ui-*` package post CORE-754 (`AGENTS.md:121`, `docs/VENDORING.md`) and
 is the architectural authority for the Axon 911 ecosystem; a ui-* bug fix belongs
 there, not in prepared911's `turbo/packages/ui-*` mirror. axon911-frontend is
