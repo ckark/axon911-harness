@@ -15,6 +15,7 @@ from .judgments import (
     check_findings,
     load_skill_roster,
     rank_context,
+    rank_docs,
     route_review,
     route_task,
 )
@@ -78,6 +79,9 @@ def cmd_jev(argv: Sequence[str]) -> int:
     ctx.add_argument("--purpose", required=True)
     ctx.add_argument("--passage", action="append", default=[])
 
+    docs = sub.add_parser("rank-docs")
+    docs.add_argument("--request", required=True)
+
     review = sub.add_parser("route-review")
     review.add_argument("--fact", action="append", default=[])
 
@@ -131,6 +135,9 @@ def cmd_jev(argv: Sequence[str]) -> int:
     if args.command == "rank-context":
         passages = _parse_passages(args.passage)
         return _emit(rank_context(passages, purpose=args.purpose), as_json=as_json)
+
+    if args.command == "rank-docs":
+        return _emit(rank_docs(args.request), as_json=as_json)
 
     if args.command == "route-review":
         facts = _parse_facts(args.fact)

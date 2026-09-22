@@ -17,10 +17,42 @@ from lib.jev import evaluate, noul_probability, run_smoke  # noqa: E402
 from lib.jev_cli import cmd_jev  # noqa: E402
 from lib.jev_redaction import build_state, redact_secrets, sanitize_user_request  # noqa: E402
 from lib.judgments import (  # noqa: E402
+    DOC_MENU,
     assess_command,
     check_claim,
+    rank_docs,
+    route_review,
     route_task,
 )
+
+
+def _review_transport(
+    *,
+    design: float = 0.1,
+    security: float = 0.1,
+    intensity: str = "light",
+    confidence: float = 0.91,
+):
+    def transport(body: Mapping[str, Any]) -> Dict[str, Any]:
+        answers: Dict[str, Any] = {}
+        for qid, question in (body.get("questions") or {}).items():
+            if question.get("type") == "noul":
+                value = design if qid == "needs_design_system" else security
+                answers[qid] = {"type": "noul", "noul": value}
+            elif question.get("type") == "choice":
+                criteria = question.get("criteria") or {}
+                probs = {key: 0.0 for key in criteria}
+                if intensity in probs:
+                    probs[intensity] = 1.0
+                answers[qid] = {
+                    "type": "choice",
+                    "choice": intensity,
+                    "probabilities": probs,
+                    "confidence": confidence,
+                }
+        return {"model": "jev-mock", "answers": answers, "usage": {}}
+
+    return transport
 
 
 def _mock_response(body: Mapping[str, Any]) -> Dict[str, Any]:
@@ -130,6 +162,55 @@ class JevJudgmentTests(unittest.TestCase):
         decision = assess_command("echo hi", transport=_mock_response, mode="shadow")
         self.assertIn(decision["policy_action"], ("allow", "fallback", "ask", "deny"))
 
+    def test_route_review_light_skips_panel(self) -> None:
+        decision = route_review({}, transport=_review_transport(intensity="light"))
+        self.assertEqual(decision["policy_action"], "skip")
+        self.assertEqual(decision["critics"], [])
+        self.assertFalse(decision["launch_bugbot"])
+
+    def test_route_review_t2_blocks_skip(self) -> None:
+        decision = route_review({"tier": "T2"}, transport=_review_transport(intensity="light"))
+        self.assertEqual(decision["policy_action"], "fallback")
+        self.assertNotEqual(decision["policy_action"], "skip")
+
+    def test_route_review_low_confidence_falls_back(self) -> None:
+        decision = route_review({}, transport=_review_transport(intensity="light", confidence=0.4))
+        self.assertEqual(decision["policy_action"], "fallback")
+        self.assertEqual(decision["fallback_reason"], "full-panel-fallback")
+
+    def test_route_review_design_system_only_omits_security(self) -> None:
+        decision = route_review(
+            {},
+            transport=_review_transport(design=0.95, security=0.1, intensity="light", confidence=0.91),
+        )
+        self.assertEqual(decision["policy_action"], "route")
+        self.assertEqual(decision["critics"], ["design-system-critic"])
+        self.assertNotIn("security-critic", decision["critics"])
+        self.assertFalse(decision["launch_bugbot"])
+
+    def test_rank_docs_keeps_relevant_only(self) -> None:
+        def transport(body: Mapping[str, Any]) -> Dict[str, Any]:
+            answers = {}
+            for qid in body.get("questions") or {}:
+                value = 0.95 if qid == "relevant_plan-contract" else 0.05
+                answers[qid] = {"type": "noul", "noul": value}
+            return {"model": "jev-mock", "answers": answers, "usage": {}}
+
+        decision = rank_docs("check this plan", transport=transport)
+        self.assertEqual(decision["policy_action"], "filter")
+        self.assertEqual(decision["keep"], ["plan-contract"])
+        self.assertNotIn("review-contract", decision["keep"])
+
+    def test_rank_docs_empty_keep_fails_open(self) -> None:
+        def transport(body: Mapping[str, Any]) -> Dict[str, Any]:
+            answers = {qid: {"type": "noul", "noul": 0.05} for qid in (body.get("questions") or {})}
+            return {"model": "jev-mock", "answers": answers, "usage": {}}
+
+        decision = rank_docs("what time is it", transport=transport)
+        self.assertEqual(decision["policy_action"], "fallback")
+        self.assertEqual(decision["keep"], [doc_id for doc_id, _summary in DOC_MENU])
+        self.assertEqual(decision["drop"], [])
+
 
 class JevRosterTests(unittest.TestCase):
     def test_roster_spans_roots_and_dedupes_symlinks(self) -> None:
@@ -171,6 +252,27 @@ class JevRoutingStatusTests(unittest.TestCase):
             status = routing_status(base=tmp)
             self.assertEqual(status["decision"], "routing-absent")
             self.assertEqual(status["policy_action"], "flag")
+            self.assertEqual(status["docs_rank"], "absent")
+
+    def test_rank_docs_does_not_satisfy_task_routing(self) -> None:
+        from lib.jev_provenance import record_observation, routing_status
+
+        with tempfile.TemporaryDirectory() as tmp:
+            record_observation(
+                question_set="rank-docs",
+                question_set_hash="qhash",
+                state_hash="shash",
+                model="jev-mock",
+                outcome="ok",
+                mode="live",
+                policy_action="filter",
+                answers_summary={},
+                base=tmp,
+            )
+            status = routing_status(base=tmp)
+            self.assertEqual(status["decision"], "routing-absent")
+            self.assertEqual(status["docs_rank"], "observed")
+            self.assertEqual(status["docs_rank_in_window"], 1)
 
     def test_recent_routing_passes(self) -> None:
         from lib.jev_provenance import record_observation, routing_status

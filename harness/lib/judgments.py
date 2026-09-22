@@ -42,6 +42,17 @@ SKILL_SUBDIRS = (
 # every skill across all roots today (119).
 MAX_ROSTER_CANDIDATES = 160
 SUMMARY_MAX_CHARS = 200
+# Descriptions only. rank_docs must not read these files into the Jev state.
+DOC_MENU = (
+    ("plan-contract", "Plan sections, ref manifest, claim ledger, and blast-radius tier before implementation."),
+    ("review-contract", "Formal review report fields, verdicts, and receipt rules."),
+    ("routing-matrix", "Which review concerns apply at each blast-radius tier."),
+    ("evidence-capture", "How to pin revisions and capture working-tree evidence."),
+    ("implementation-contract", "Definition of done and per-root verification commands."),
+    ("session-budget", "Turn and context limits, and when to write a handoff."),
+)
+_REVIEW_RISK_FACTS = ("auth", "privacy", "breaking_public_api")
+_TRUE_FACT = ("1", "true", "yes")
 
 
 def _summary_from_skill(path: str) -> str:
@@ -473,6 +484,81 @@ def rank_context(
     return decision
 
 
+def _doc_ids() -> List[str]:
+    return [doc_id for doc_id, _summary in DOC_MENU]
+
+
+def _read_all_docs(result: Mapping[str, Any], *, fallback_reason: str) -> Dict[str, Any]:
+    """Fail open: an unusable rank must not drop contracts."""
+    decision = inconclusive_decision(
+        decision="read-all",
+        fallback_reason=fallback_reason,
+        mode="live",
+        keep=_doc_ids(),
+        drop=[],
+    )
+    decision["jev"] = result
+    _maybe_record("rank-docs", result, mode="live", policy_action="fallback", fallback_reason=fallback_reason)
+    return decision
+
+
+def rank_docs(user_request: str, *, transport: Optional[Transport] = None) -> Dict[str, Any]:
+    """Rank the harness doc menu from the request and one-line descriptions.
+
+    File bodies are not sent. Inconclusive results and an empty keep-set both
+    return the full menu.
+    """
+    state = build_state(user_request=user_request)
+    questions = {
+        "relevant_%s" % doc_id: {
+            "type": "noul",
+            "instructions": "Should the agent read `%s` before acting? %s" % (doc_id, summary),
+        }
+        for doc_id, summary in DOC_MENU
+    }
+    result = evaluate(state, questions, transport=transport)
+    if result.get("status") == STATUS_INCONCLUSIVE:
+        return _read_all_docs(result, fallback_reason=result.get("reason") or "docs-rank-inconclusive")
+    keep: List[str] = []
+    drop: List[str] = []
+    for doc_id, _summary in DOC_MENU:
+        if noul_yes(noul_probability(result, "relevant_%s" % doc_id)):
+            keep.append(doc_id)
+        else:
+            drop.append(doc_id)
+    if not keep:
+        return _read_all_docs(result, fallback_reason="docs-rank-empty")
+    decision = {
+        "decision": "filtered",
+        "policy_action": "filter",
+        "keep": keep,
+        "drop": drop,
+        "fallback_reason": "",
+        "mode": "live",
+        "jev": result,
+    }
+    _maybe_record("rank-docs", result, mode="live", policy_action="filter")
+    return decision
+
+
+def _review_blocked(facts: Mapping[str, Any]) -> bool:
+    """Mechanical facts that forbid skipping the panel, whatever Jev says."""
+    tier = str(facts.get("tier") or "").strip().upper()
+    if tier.startswith("T"):
+        digits = ""
+        for char in tier[1:]:
+            if char.isdigit():
+                digits += char
+            else:
+                break
+        if digits and int(digits) >= 2:
+            return True
+    for key in _REVIEW_RISK_FACTS:
+        if str(facts.get(key) or "").strip().lower() in _TRUE_FACT:
+            return True
+    return False
+
+
 def route_review(
     facts: Mapping[str, Any],
     *,
@@ -510,23 +596,49 @@ def route_review(
         critics.append("security-critic")
     intensity = choice_answer(result, "intensity") or "standard"
     confidence = choice_confidence(result, "intensity")
-    if not critics or (confidence is not None and confidence < CHOICE_CONFIDENCE):
+    blocked = intensity == "deep" or _review_blocked(facts)
+    low_confidence = confidence is None or confidence < CHOICE_CONFIDENCE
+
+    def _fallback(reason: str) -> Dict[str, Any]:
         decision = inconclusive_decision(
-            fallback_reason="full-panel-fallback",
+            fallback_reason=reason,
+            mode="live",
             critics=critics,
             intensity=intensity,
             confidence=confidence,
+            launch_bugbot=True,
         )
         decision["jev"] = result
-        _maybe_record("route-review", result, mode="live", policy_action="fallback", fallback_reason=decision["fallback_reason"])
+        _maybe_record("route-review", result, mode="live", policy_action="fallback", fallback_reason=reason)
         return decision
+
+    if low_confidence:
+        return _fallback("full-panel-fallback")
+    if intensity == "light" and not critics and not blocked:
+        decision = {
+            "decision": "skip",
+            "policy_action": "skip",
+            "critics": [],
+            "intensity": intensity,
+            "confidence": confidence,
+            "launch_bugbot": False,
+            "fallback_reason": "",
+            "mode": "live",
+            "jev": result,
+        }
+        _maybe_record("route-review", result, mode="live", policy_action="skip")
+        return decision
+    if not critics:
+        return _fallback("full-panel-fallback")
     decision = {
         "decision": "route",
         "policy_action": "route",
         "critics": critics,
         "intensity": intensity,
         "confidence": confidence,
+        "launch_bugbot": intensity in ("standard", "deep"),
         "fallback_reason": "",
+        "mode": "live",
         "jev": result,
     }
     _maybe_record("route-review", result, mode="live", policy_action="route")

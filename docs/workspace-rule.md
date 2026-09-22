@@ -65,9 +65,22 @@ makes the session invisible to the routing check; use it only for tests.
 
 ## Before editing
 
-For **code authoring** (not research or Notion-only work), read
-[docs/ponytail.md](ponytail.md) after the target root's `AGENTS.md`. Repository
-instructions and harness contracts override the ponytail ladder.
+Always read the target root's `AGENTS.md` (vault: `.cursorrules`). For code
+authoring, also read [docs/ponytail.md](ponytail.md). Repository instructions
+and harness contracts override the ponytail ladder.
+
+On the same non-exempt requests as task routing, rank the optional contract
+menu before opening those files. Send the sanitized request only:
+
+```bash
+python3 harness/cli.py jev rank-docs --request "<sanitized user request>" --json
+```
+
+Read the ids in `keep`, plus the always-read set above. Do not open ids in
+`drop`. `policy_action=fallback` means the rank failed open: read every id in
+`keep`, which is the full menu. The exemptions match task routing: pure
+questions with no file edits, an explicitly named skill or slash command, and
+continuations of work already ranked in this session.
 
 Identify the target root, then read that root's own `AGENTS.md`. axon911-frontend
 is flat (`packages/ui-*`, `apps/docs`, `apps/storybook`); prepared911 nests under

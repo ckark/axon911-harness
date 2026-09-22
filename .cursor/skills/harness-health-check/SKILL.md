@@ -41,6 +41,9 @@ Do not modify files or run mutating commands.
      violation**, not a warning: report it as `FAIL` with the observation count
      and remediation (run `jev route-task` on the next non-exempt request, and
      confirm `HARNESS_JEV_RECORD` is unset).
+   - `docs_rank=absent` is a **warning** only. Remediation is to run
+     `jev rank-docs` on the next non-exempt implementation request. Do not FAIL
+     the health check for a missing doc rank.
 11. Run `git status --short --branch` in each repository root (one command each).
 12. Confirm no files changed during the health check.
 

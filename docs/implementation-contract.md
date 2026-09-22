@@ -11,7 +11,9 @@ Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, or
 
 When implementing (not reviewing only), apply the minimum-code ladder in
 [docs/ponytail.md](ponytail.md) after this contract and the target root's
-`AGENTS.md`. Harness and repository rules override ponytail.
+`AGENTS.md`. Harness and repository rules override ponytail. Which other
+harness contracts to open is decided by `jev rank-docs` in
+[docs/workspace-rule.md](workspace-rule.md); do not read the dropped ids.
 
 axon911-frontend owns every
 `@prepared/ui-*` package post CORE-754 (`AGENTS.md:121`, `docs/VENDORING.md`) and

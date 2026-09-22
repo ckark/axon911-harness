@@ -50,6 +50,8 @@ def routing_status(*, window_hours: int = 24, base: Optional[str] = None) -> Dic
     recent = [item for item in routing if float(item.get("ts") or 0) >= cutoff]
     routed = [item for item in recent if item.get("policy_action") == "route"]
     last_ts = max((float(item.get("ts") or 0) for item in routing), default=0.0)
+    docs = [item for item in records if item.get("question_set") == "rank-docs"]
+    docs_recent = [item for item in docs if float(item.get("ts") or 0) >= cutoff]
     return {
         "decision": "routing-observed" if recent else "routing-absent",
         "policy_action": "pass" if recent else "flag",
@@ -60,6 +62,8 @@ def routing_status(*, window_hours: int = 24, base: Optional[str] = None) -> Dic
         "routed_in_window": len(routed),
         "fallback_in_window": len(recent) - len(routed),
         "last_routing_ts": int(last_ts),
+        "docs_rank": "observed" if docs_recent else "absent",
+        "docs_rank_in_window": len(docs_recent),
         "observations_path": observations_path(base),
         "fallback_reason": "" if recent else "no-route-task-observations-in-window",
     }

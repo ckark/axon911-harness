@@ -99,7 +99,9 @@ python3 harness/cli.py <command>
 | `verify --explain` | Mechanical coverage with recovery categories |
 | `issue-review-receipt` | Record a review at a tier after validating `--report` |
 | `jev route-task` | **Required** skill routing across all roots before loading a skill body |
-| `jev list-skills` / `jev routing-status` | Cross-root roster; routing-compliance signal for the health check |
+| `jev rank-docs` | **Required** on the same non-exempt requests: which optional contracts to leave unread |
+| `jev route-review` | `skip` launches no in-session panel; `route` launches only listed critics; `fallback` is the full panel |
+| `jev list-skills` / `jev routing-status` | Cross-root roster; routing FAIL on `routing-absent`; warning on `docs_rank=absent` |
 | `jev` (other) | Bounded semantic checks (`smoke`, `assess-plan`, `check-claim`, …) |
 | `benchmark` | Ledger/gate performance check |
 

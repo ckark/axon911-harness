@@ -1,6 +1,6 @@
 ---
 name: adversarial-review
-description: Optional formal review gate. Dispatches the design-system critic plus Cursor bugbot/security-review when the panel trigger list applies. Use only after scope is frozen.
+description: Optional formal review gate. Jev route-review may skip the in-session panel, dispatch a short critic list, or fall back to the full panel. Use only after scope is frozen.
 ---
 
 # Axon 911 Adversarial Review
@@ -26,8 +26,13 @@ python3 harness/cli.py jev route-review \
   --fact tier=T2 --fact ui_packages_changed=true --json
 ```
 
-When Jev returns `policy_action=fallback`, dispatch the full default panel below.
-Screen context passages before critic dispatch:
+Follow `policy_action`. Low confidence and API failure are `fallback`, never a skip.
+
+- `skip`: launch no subagents and do not run `rank-context`. Say the panel was skipped because the route was light, confident, and had no mechanical risk facts (tier below T2, and no auth, privacy, or breaking public API fact).
+- `route`: dispatch only the names in `critics`. `design-system-critic` is the harness agent. `security-critic` means Cursor `security-review`, not a harness agent file. Launch in-chat Bugbot only when `launch_bugbot` is true (`standard` or `deep`). A light partial route does not launch Bugbot.
+- `fallback`: dispatch the full panel below.
+
+Screen context passages only when critics will actually run:
 
 ```bash
 python3 harness/cli.py jev rank-context --purpose review --passage "id=text" --json
@@ -41,14 +46,13 @@ python3 harness/cli.py jev check-findings --file .harness/runtime/reports/<criti
 
 Uncertain classifications stay with the human reviewer.
 
-## Panel (at most one bespoke critic)
+## Panel (fallback only)
 
-Dispatch **in one foreground batch**, never backgrounded:
+When `policy_action=fallback`, dispatch **in one foreground batch**, never backgrounded:
 
-1. `design-system-critic` — always, for harness-specific authority and blast
-   radius
-2. Cursor `bugbot` — general code review
-3. Cursor `security-review` — only when injection, auth, or trust boundaries
+1. `design-system-critic`, for harness-specific authority and blast radius
+2. Cursor `bugbot`, for general code review
+3. Cursor `security-review`, only when injection, auth, or trust boundaries
    were an explicit requirement
 
 Do not dispatch performance-reliability or quality-accessibility critics.
