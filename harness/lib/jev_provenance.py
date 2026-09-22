@@ -38,34 +38,93 @@ def read_observations(base: Optional[str] = None) -> List[Dict[str, Any]]:
     return records
 
 
+TURN_COVERAGE_THRESHOLD = 0.9
+
+
+def turns_dir(base: Optional[str] = None) -> str:
+    path = os.path.join(base or runtime_dir(), "jev-turns")
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+    return path
+
+
+def turn_ledger_path(base: Optional[str] = None) -> str:
+    return os.path.join(turns_dir(base), "ledger.jsonl")
+
+
+def append_turn_event(event: Mapping[str, Any], base: Optional[str] = None) -> None:
+    """Append one turn-compliance row. Callers must not include request text."""
+    path = turn_ledger_path(base)
+    record = dict(event)
+    record.setdefault("ts", int(time.time()))
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
+    with os.fdopen(fd, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, separators=(",", ":")) + "\n")
+    os.chmod(path, 0o600)
+
+
+def read_turn_events(base: Optional[str] = None) -> List[Dict[str, Any]]:
+    path = turn_ledger_path(base)
+    if not os.path.isfile(path):
+        return []
+    records: List[Dict[str, Any]] = []
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                parsed = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(parsed, dict):
+                records.append(parsed)
+    return records
+
+
 def routing_status(*, window_hours: int = 24, base: Optional[str] = None) -> Dict[str, Any]:
-    """Whether task routing ran recently, for the health check's required-routing gate."""
+    """Turn coverage for hook-delivered routing, plus the doc-rank warning signal."""
     cutoff = time.time() - (window_hours * 3600)
     records = read_observations(base)
-    routing = [
-        item
-        for item in records
-        if str(item.get("question_set") or "").startswith("route-task")
-    ]
-    recent = [item for item in routing if float(item.get("ts") or 0) >= cutoff]
-    routed = [item for item in recent if item.get("policy_action") == "route"]
-    last_ts = max((float(item.get("ts") or 0) for item in routing), default=0.0)
     docs = [item for item in records if item.get("question_set") == "rank-docs"]
     docs_recent = [item for item in docs if float(item.get("ts") or 0) >= cutoff]
+    events = read_turn_events(base)
+    eligible = [
+        item
+        for item in events
+        if item.get("kind") == "eligible" and float(item.get("ts") or 0) >= cutoff
+    ]
+    turn_ids = {str(item.get("turn_id") or "") for item in eligible}
+    later = [
+        item
+        for item in events
+        if str(item.get("turn_id") or "") in turn_ids and item.get("kind") in ("routed", "delivered", "failed")
+    ]
+    routed_ids = {str(item.get("turn_id") or "") for item in later if item.get("kind") == "routed"}
+    delivered_ids = {str(item.get("turn_id") or "") for item in later if item.get("kind") == "delivered"}
+    failed_ids = {str(item.get("turn_id") or "") for item in later if item.get("kind") == "failed"}
+    eligible_count = len(eligible)
+    delivered_count = len(delivered_ids & turn_ids)
+    coverage_ok = eligible_count == 0 or (delivered_count / float(eligible_count)) >= TURN_COVERAGE_THRESHOLD
+    if eligible_count == 0:
+        decision = "routing-idle"
+    elif coverage_ok:
+        decision = "routing-observed"
+    else:
+        decision = "routing-incomplete"
     return {
-        "decision": "routing-observed" if recent else "routing-absent",
-        "policy_action": "pass" if recent else "flag",
+        "decision": decision,
+        "policy_action": "pass" if coverage_ok else "flag",
         "window_hours": window_hours,
-        "observations_total": len(records),
-        "routing_total": len(routing),
-        "routing_in_window": len(recent),
-        "routed_in_window": len(routed),
-        "fallback_in_window": len(recent) - len(routed),
-        "last_routing_ts": int(last_ts),
+        "eligible_turns": eligible_count,
+        "routed_turns": len(routed_ids & turn_ids),
+        "delivered_turns": delivered_count,
+        "jev_failures": len(failed_ids & turn_ids),
         "docs_rank": "observed" if docs_recent else "absent",
         "docs_rank_in_window": len(docs_recent),
         "observations_path": observations_path(base),
-        "fallback_reason": "" if recent else "no-route-task-observations-in-window",
+        "ledger_path": turn_ledger_path(base),
+        "fallback_reason": "" if coverage_ok else "turn-coverage-below-threshold",
     }
 
 

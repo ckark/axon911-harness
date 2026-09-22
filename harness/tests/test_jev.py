@@ -250,8 +250,9 @@ class JevRoutingStatusTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             status = routing_status(base=tmp)
-            self.assertEqual(status["decision"], "routing-absent")
-            self.assertEqual(status["policy_action"], "flag")
+            self.assertEqual(status["decision"], "routing-idle")
+            self.assertEqual(status["policy_action"], "pass")
+            self.assertEqual(status["eligible_turns"], 0)
             self.assertEqual(status["docs_rank"], "absent")
 
     def test_rank_docs_does_not_satisfy_task_routing(self) -> None:
@@ -270,45 +271,42 @@ class JevRoutingStatusTests(unittest.TestCase):
                 base=tmp,
             )
             status = routing_status(base=tmp)
-            self.assertEqual(status["decision"], "routing-absent")
+            self.assertEqual(status["decision"], "routing-idle")
+            self.assertEqual(status["eligible_turns"], 0)
             self.assertEqual(status["docs_rank"], "observed")
             self.assertEqual(status["docs_rank_in_window"], 1)
 
     def test_recent_routing_passes(self) -> None:
-        from lib.jev_provenance import record_observation, routing_status
+        from lib.jev_provenance import append_turn_event, routing_status
 
         with tempfile.TemporaryDirectory() as tmp:
-            record_observation(
-                question_set="route-task",
-                question_set_hash="qhash",
-                state_hash="shash",
-                model="jev-mock",
-                outcome="ok",
-                mode="live",
-                policy_action="route",
-                answers_summary={},
-                base=tmp,
-            )
+            append_turn_event({"kind": "eligible", "turn_id": "t1", "conversation_hash": "h"}, base=tmp)
+            append_turn_event({"kind": "routed", "turn_id": "t1"}, base=tmp)
+            append_turn_event({"kind": "delivered", "turn_id": "t1"}, base=tmp)
             status = routing_status(base=tmp)
             self.assertEqual(status["decision"], "routing-observed")
-            self.assertEqual(status["routed_in_window"], 1)
+            self.assertEqual(status["eligible_turns"], 1)
+            self.assertEqual(status["routed_turns"], 1)
+            self.assertEqual(status["delivered_turns"], 1)
+            self.assertEqual(status["policy_action"], "pass")
 
-    def test_stale_routing_is_flagged(self) -> None:
+    def test_low_coverage_is_flagged(self) -> None:
         import time as time_module
 
-        from lib.jev_provenance import observations_path, routing_status
+        from lib.jev_provenance import append_turn_event, routing_status
 
         with tempfile.TemporaryDirectory() as tmp:
-            stale = {
-                "ts": int(time_module.time()) - (48 * 3600),
-                "question_set": "route-task",
-                "policy_action": "route",
-            }
-            with open(observations_path(tmp), "w", encoding="utf-8") as handle:
-                handle.write(json.dumps(stale) + "\n")
+            old = int(time_module.time()) - (48 * 3600)
+            append_turn_event({"ts": old, "kind": "eligible", "turn_id": "old", "conversation_hash": "h"}, base=tmp)
+            append_turn_event({"kind": "eligible", "turn_id": "t1", "conversation_hash": "h"}, base=tmp)
+            append_turn_event({"kind": "eligible", "turn_id": "t2", "conversation_hash": "h"}, base=tmp)
+            append_turn_event({"kind": "delivered", "turn_id": "t1"}, base=tmp)
             status = routing_status(window_hours=24, base=tmp)
-            self.assertEqual(status["decision"], "routing-absent")
-            self.assertEqual(status["routing_total"], 1)
+            self.assertEqual(status["decision"], "routing-incomplete")
+            self.assertEqual(status["eligible_turns"], 2)
+            self.assertEqual(status["delivered_turns"], 1)
+            self.assertEqual(status["policy_action"], "flag")
+            self.assertEqual(status["jev_failures"], 0)
 
 
 class JevCliTests(unittest.TestCase):

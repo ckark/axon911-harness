@@ -49,8 +49,20 @@ Then follow the result:
 a skill or slash command explicitly, and continuations of work already routed in
 this session.
 
-Skipping routing on a non-exempt request is a contract violation.
-`/harness-health-check` flags it by reading recorded routing observations:
+Sending sanitized, redacted excerpts to `api.typesafe.ai` is approved. Do not
+skip a Jev phase because it leaves the machine. The redaction in
+`harness/lib/jev_redaction.py` is the bound: no `.env`, credentials, ledger,
+transcripts, or raw secrets.
+
+User-level Cursor hooks deliver routing. On a prompt in a workspace that
+includes a registered root, `beforeSubmitPrompt` runs `route-task` and
+`rank-docs`, and the next `postToolUse` injects the skill to read and the
+contracts to leave unread. Run the commands below only when that injection
+does not arrive. A prompt that starts with `/` is exempt, as are chats whose
+workspace includes none of the four roots.
+
+`/harness-health-check` fails when those user hooks are missing, and warns
+when delivered turns fall below 90% of eligible turns:
 
 ```bash
 python3 harness/cli.py jev routing-status --json

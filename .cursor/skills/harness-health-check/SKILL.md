@@ -33,17 +33,19 @@ Do not modify files or run mutating commands.
 7. Confirm `docs/workspace-rule.md` documents mechanical-on / panel-off posture.
 8. Run `python3 harness/cli.py benchmark --json` (expect `history_independent: true`).
 9. Run `python3 harness/cli.py jev smoke --json` when `TYPESAFE_API_KEY` is configured (expect `policy_action=pass` or document fallback).
-10. Verify required task routing:
+10. Verify hook-delivered routing:
+   - `~/.cursor/hooks.json` contains `harness/dispatch/jev_hooks.py` for
+     `beforeSubmitPrompt`, an unmatched `postToolUse`, and a `postToolUse`
+     matcher `CreatePlan`. A missing entry is a **FAIL**.
    - `python3 harness/cli.py jev list-skills --json` resolves skills from more
      than one root; a single-root roster means root paths are misconfigured.
-   - `python3 harness/cli.py jev routing-status --json` returns
-     `decision=routing-observed`. A `routing-absent` result is a **contract
-     violation**, not a warning: report it as `FAIL` with the observation count
-     and remediation (run `jev route-task` on the next non-exempt request, and
-     confirm `HARNESS_JEV_RECORD` is unset).
-   - `docs_rank=absent` is a **warning** only. Remediation is to run
-     `jev rank-docs` on the next non-exempt implementation request. Do not FAIL
-     the health check for a missing doc rank.
+   - `python3 harness/cli.py jev routing-status --json` reports
+     `eligible_turns`, `routed_turns`, `delivered_turns`, and `jev_failures`.
+     `policy_action=flag` (delivered turns below 90% of eligible turns) is a
+     **warning**, not a failure. `routing-idle` (no eligible turns) is not a
+     failure.
+   - `docs_rank=absent` is a **warning** only. Do not FAIL the health check
+     for a missing doc rank.
 11. Run `git status --short --branch` in each repository root (one command each).
 12. Confirm no files changed during the health check.
 

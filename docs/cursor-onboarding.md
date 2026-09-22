@@ -37,6 +37,12 @@ Option 1 is preferred: the skills and `docs/` contracts resolve by relative path
 from this repo, and option 2 leaves them dangling unless the whole repo is
 reachable anyway.
 
+Jev routing does not depend on that. `~/.cursor/hooks.json` calls
+`harness/dispatch/jev_hooks.py` by absolute path for `beforeSubmitPrompt`,
+`postToolUse`, and `postToolUse` matched to `CreatePlan`. Those hooks run in
+every project, skip workspaces that contain none of the four roots, and inject
+the routing result. Keep the existing `rtk hook cursor` `preToolUse` entry.
+
 Confirm the wiring before trusting it. The shim takes an event name or a CLI
 subcommand, so `--help` is not a valid probe — it prints `unknown command` and
 still exits 0. Use these instead:
@@ -98,10 +104,9 @@ python3 harness/cli.py <command>
 | `bundle` | Cross-root publication manifest create/verify |
 | `verify --explain` | Mechanical coverage with recovery categories |
 | `issue-review-receipt` | Record a review at a tier after validating `--report` |
-| `jev route-task` | **Required** skill routing across all roots before loading a skill body |
-| `jev rank-docs` | **Required** on the same non-exempt requests: which optional contracts to leave unread |
+| `jev route-task` / `jev rank-docs` | Fallback only. User hooks in `~/.cursor/hooks.json` run these on prompt submit for a registered root and inject the result |
 | `jev route-review` | `skip` launches no in-session panel; `route` launches only listed critics; `fallback` is the full panel |
-| `jev list-skills` / `jev routing-status` | Cross-root roster; routing FAIL on `routing-absent`; warning on `docs_rank=absent` |
+| `jev list-skills` / `jev routing-status` | Cross-root roster; health check FAILs when the user hooks are missing and WARNs when delivered turns are under 90% of eligible turns |
 | `jev` (other) | Bounded semantic checks (`smoke`, `assess-plan`, `check-claim`, …) |
 | `benchmark` | Ledger/gate performance check |
 

@@ -67,19 +67,24 @@ Follow evidence-capture Phase 2a rules:
 2. Capture the **working-tree snapshot**.
 3. State one scope decision: `committed-only` or `committed-plus-delta`.
 
-## Phase 2b: Jev plan semantics (optional)
+## Phase 2b: Jev plan semantics (required)
 
-After mechanical ref and scope checks, run bounded Jev assessments on sanitized
-excerpts (never raw `.env`, credentials, or full transcripts):
+Egress of sanitized excerpts is already approved. Do not skip this phase for
+consent. Skip it only when `.harness/runtime/jev-plans/<sha256>.json` already
+exists for the sha256 of the plan text, which means the `CreatePlan` preflight
+already ran `assess-plan` on that plan.
+
+Otherwise, after the mechanical ref and scope checks:
 
 ```bash
 python3 harness/cli.py jev assess-plan --plan <plan-file> --json
 ```
 
-Treat Jev output as advisory. When `policy_action=fallback`, keep the existing
-LLM plan-check judgment for scope alignment and falsifiable claims.
+When `policy_action=fallback`, keep the mechanical plan-check judgment for
+scope alignment and falsifiable claims.
 
-For each claim row after deterministic command verification:
+Run `check-claim` only for a ledger row that has no command to re-run.
+Claims with a command are verified by that command, not by Jev.
 
 ```bash
 python3 harness/cli.py jev check-claim \

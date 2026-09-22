@@ -96,6 +96,9 @@ def cmd_jev(argv: Sequence[str]) -> int:
     eval_cmd = sub.add_parser("eval")
     eval_cmd.add_argument("--fixture", required=True)
 
+    hook_turn = sub.add_parser("hook-turn")
+    hook_turn.add_argument("--turn", required=True)
+
     args = parser.parse_args(args_list)
 
     if args.command == "smoke":
@@ -151,6 +154,12 @@ def cmd_jev(argv: Sequence[str]) -> int:
 
     if args.command == "assess-command":
         return _emit(assess_command(args.command, mode=args.mode), as_json=as_json)
+
+    if args.command == "hook-turn":
+        from dispatch.jev_hooks import run_hook_turn
+
+        run_hook_turn(args.turn)
+        return 0
 
     if args.command == "eval":
         return _run_eval(args.fixture, as_json=as_json)

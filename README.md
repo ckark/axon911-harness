@@ -159,18 +159,21 @@ python3 harness/cli.py jev route-task --request "add a remote module" --json
 ```
 
 Subcommands: `route-task`, `list-skills`, `routing-status`, `rank-docs`,
-`assess-plan`, `check-claim`, `assess-change`, `rank-context`, `route-review`,
-`check-findings`, `assess-command`, and `eval`.
+`hook-turn`, `assess-plan`, `check-claim`, `assess-change`, `rank-context`,
+`route-review`, `check-findings`, `assess-command`, and `eval`.
 
-**Task routing is required**, not advisory: run `route-task` before loading a
-skill body for any non-exempt action request. The roster spans all four roots
-(`<root>#<skill>`); `list-skills` prints it. `/harness-health-check` fails when
-`routing-status` reports `routing-absent`. The same exemptions apply to
-`rank-docs`, which chooses which optional contracts to leave unread.
-`routing-status` reports `docs_rank=absent` as a health-check warning, not a
-failure. `route-review` returns `skip` for a confident light change with no
-risk facts, `route` for the listed critics only, and `fallback` for the full
-in-session panel. See `docs/workspace-rule.md` for the exemptions.
+**Task routing is delivered by user hooks**, not by the model remembering a
+command. `~/.cursor/hooks.json` points `beforeSubmitPrompt` and `postToolUse`
+at `harness/dispatch/jev_hooks.py`. In a workspace that includes a registered
+root, the hook runs `route-task` and `rank-docs` and injects the result after
+the next tool call. Slash commands and unregistered workspaces (research chats
+such as `chroma`) are skipped. `/harness-health-check` fails when those hook
+entries are missing, and warns when `routing-status` shows delivered turns
+below 90% of eligible turns. `route-task` and `rank-docs` remain the fallback
+when no injection arrives. Sending sanitized excerpts to TypeSafe is approved.
+`route-review` returns `skip` for a confident light change with no risk facts,
+`route` for the listed critics only, and `fallback` for the full in-session
+panel. See `docs/workspace-rule.md`.
 
 Deterministic proof (hashes, Git state, schemas, receipts, tests) stays
 authoritative. Jev runs in **shadow mode** for semantic tier risk, visibility, and

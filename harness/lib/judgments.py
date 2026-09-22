@@ -283,6 +283,20 @@ def route_task(
     return decision
 
 
+def skill_path_for(skill_id: str) -> str:
+    """Absolute `SKILL.md` path for a `<root>#<skill>` id, or empty when missing."""
+    if "#" not in skill_id:
+        candidate = os.path.join(SKILL_DIR, skill_id, "SKILL.md")
+        return os.path.realpath(candidate) if os.path.isfile(candidate) else ""
+    root_id, name = skill_id.split("#", 1)
+    root_path = _skill_roots().get(root_id, "")
+    for subdir in SKILL_SUBDIRS:
+        candidate = os.path.join(root_path, subdir, name, "SKILL.md")
+        if os.path.isfile(candidate):
+            return os.path.realpath(candidate)
+    return ""
+
+
 def _skill_body(skill_id: str) -> str:
     """Full SKILL.md text for a `<root>#<skill>` or bare skill id."""
     if "#" in skill_id:
