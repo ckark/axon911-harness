@@ -31,6 +31,7 @@ from lib.receipts import (  # noqa: E402
     register_plan,
 )
 from lib.command_specs import validate_attestation_command  # noqa: E402
+from lib.episodes import cmd_evals  # noqa: E402
 from lib.plan_profile import (  # noqa: E402
     parse_path_surface_args,
     register_plan_profile,
@@ -1291,6 +1292,7 @@ SUBCOMMANDS = {
     "budget-check": cmd_budget_check,
     "issue-visual-acceptance-receipt": cmd_issue_visual_acceptance,
     "cost": cmd_cost,
+    "evals": cmd_evals,
 }
 
 

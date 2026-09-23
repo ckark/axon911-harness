@@ -1,0 +1,16 @@
+{
+  "title": "Jev routing eval case",
+  "type": "object",
+  "required": ["id", "request", "expected"],
+  "properties": {
+    "id": {"type": "string"},
+    "request": {
+      "type": "string",
+      "description": "Hand-minimized paraphrase. Never a raw transcript prompt."
+    },
+    "expected": {
+      "type": "string",
+      "description": "A <root>#<skill> id, or abstain."
+    }
+  }
+}
