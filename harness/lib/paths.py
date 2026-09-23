@@ -14,6 +14,7 @@ DEFAULT_ROOT_PATHS = {
     "axon911-frontend": "/Users/ckark/Documents/GitHub/axon911-frontend",
     "prepared911": "/Users/ckark/Documents/GitHub/prepared911",
     "vault-core-ux": "/Users/ckark/Documents/GitHub/vault-core-ux",
+    "chroma": "/Users/ckark/Documents/GitHub/chroma",
 }
 
 # Override per-root paths without a plugin host. See docs/cursor-onboarding.md.
@@ -21,6 +22,7 @@ ROOT_ENV_KEYS = {
     "axon911-frontend": "HARNESS_AXON911_ROOT",
     "prepared911": "HARNESS_PREPARED911_ROOT",
     "vault-core-ux": "HARNESS_VAULT_ROOT",
+    "chroma": "HARNESS_CHROMA_ROOT",
 }
 
 
@@ -178,7 +180,7 @@ def identify_root(path: str, roots: Optional[Mapping[str, str]] = None) -> Tuple
             if configured_common and configured_common == candidate_common:
                 return root_id, candidate_top or real
 
-    raise PathError("path is outside the four configured roots")
+    raise PathError("path is outside the configured roots")
 
 
 def canonical_path(path: str) -> str:

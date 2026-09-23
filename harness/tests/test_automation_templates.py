@@ -41,6 +41,7 @@ class AutomationTemplateTests(unittest.TestCase):
             self.assertNotIn("personal-harness", lowered)
             self.assertNotIn("/users/", lowered)
             self.assertNotIn("prepared911-harness", lowered)
+            self.assertNotIn("axon911-harness", lowered)
 
     def test_static_inspect_never_executes_pr_code(self) -> None:
         text = _read("static-pr-inspect.md").lower()

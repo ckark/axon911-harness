@@ -9,7 +9,7 @@ Do not modify files or run mutating commands.
 
 ## Checks
 
-1. List the workspace roots and confirm all four roots resolve.
+1. List the workspace roots and confirm every configured root resolves.
 2. Resolve and read each root's `AGENTS.md` (or vault `.cursorrules`).
 3. Confirm axon911-frontend docs benchmark paths exist.
 4. Confirm the personal harness contains:

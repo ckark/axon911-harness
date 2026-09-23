@@ -64,12 +64,19 @@ class JevHookTests(unittest.TestCase):
 
     def test_unregistered_root_spawns_nothing(self) -> None:
         result = jev_hooks.handle_before_submit(
-            self._payload(workspace_roots=["/Users/ckark/Documents/GitHub/chroma"]),
+            self._payload(workspace_roots=[self._tmp.name]),
             spawn=self.spawned.append,
         )
         self.assertEqual(result, {"continue": True})
         self.assertEqual(self.spawned, [])
         self.assertEqual(read_turn_events(), [])
+
+    def test_chroma_root_is_registered(self) -> None:
+        jev_hooks.handle_before_submit(
+            self._payload(workspace_roots=["/Users/ckark/Documents/GitHub/chroma"]),
+            spawn=self.spawned.append,
+        )
+        self.assertEqual(len(self.spawned), 1)
 
     def test_slash_prompt_is_skipped(self) -> None:
         result = jev_hooks.handle_before_submit(

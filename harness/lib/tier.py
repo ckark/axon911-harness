@@ -69,6 +69,7 @@ SURFACE_PATTERNS = {
         r"^turbo/packages/ui-core/src/styles/",
     ),
     "vault-core-ux": (),
+    "chroma": (),
     "personal-harness": (),
 }
 

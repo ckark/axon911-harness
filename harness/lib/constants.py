@@ -29,6 +29,7 @@ ROOT_IDS = (
     "axon911-frontend",
     "prepared911",
     "vault-core-ux",
+    "chroma",
     "personal-harness",
 )
 ALLOWED_PERSISTED_FIELDS = (

@@ -13,6 +13,7 @@ Configured consumers, in precedence order:
 - `axon911-frontend` — owns `@prepared/ui-*` post CORE-754; architectural authority
 - `prepared911` — consumes the published artifacts; its `turbo/packages/ui-*` is a deprecating mirror
 - `vault-core-ux`
+- `chroma` — colour and token generator; no product-UI obligations
 - `personal-harness`
 
 Root paths resolve from `HARNESS_ROOTS_JSON`, then `HARNESS_*_ROOT` environment

@@ -9,8 +9,9 @@ Score 1.0 only if ALL of the following hold:
    breaking surface change (e.g. "surface-breaking", "removed enum member
    Ghost"). Generic phrasing like "this touches ui-core so it's T2" fails this
    criterion — it must cite the removal itself, not the package it lives in.
-4. The agent identifies that `T2` requires the signal-selected panel plus
-   `review-adjudicator`, not a single critic.
+4. The agent identifies that `T2` covers every concern the change signal names,
+   mapped to the real panel in `docs/routing-matrix.md`, rather than a single
+   critic. There is no adjudicator; the human PR reviewer arbitrates.
 5. Given `T2` is now a **floor that must be earned, not a default**, the agent
    should not treat `T2` as the obviously-safe default answer without having
    actually identified the breaking predicate — i.e. the reasoning should show

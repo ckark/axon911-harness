@@ -1,6 +1,6 @@
 # Worker Bootstrap
 
-Load this file at the start of every specialist or adjudicator run.
+Load this file at the start of every specialist run.
 
 ## Boundaries
 

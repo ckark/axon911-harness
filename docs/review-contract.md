@@ -43,7 +43,11 @@ Full report text must not enter the orchestrator context.
 
 For every finding provide:
 
-- **ID:** Domain-prefixed identifier (`DS-###`, `FA-###`, `DOCS-DRIFT-###`, …)
+- **ID:** Domain-prefixed identifier (`DS-###`, `FA-###`, `DOCS-DRIFT-###`,
+  `INTENT-###`, …). An `INTENT-###` finding names the principle id, the
+  observed behavior, the user consequence, and the smallest correction. Against
+  a draft principle it is at most `medium` and cannot alone produce
+  `CHANGES REQUIRED`.
 - **Severity:** `critical`, `high`, `medium`, `low`, or `informational`
 - **Location:** Exact `<ref>:<path>:<line>`, plan section, public API, or command output
 - **Evidence:** What was directly observed

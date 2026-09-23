@@ -22,7 +22,7 @@ def is_plausible_commit_sha(value: str) -> bool:
         return False
     return True
 
-CAPTURE_PRODUCER = "prepared911-harness/storybook-capture"
+CAPTURE_PRODUCER = "axon911-harness/storybook-capture"
 CAPTURE_RECEIPT_VERSION = 4
 SUPPORTED_RECEIPT_VERSIONS = (4,)
 CAPTURE_KINDS = ("storybook", "product-route", "not-applicable")

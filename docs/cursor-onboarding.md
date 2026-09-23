@@ -8,7 +8,7 @@ as it exists on `ckark/harness-attest-evals`, which both hosts share.
 This Cursor workspace uses the checkout at:
 
 ```
-/Users/ckark/Documents/CursorWorkspaces/prepared911-harness
+/Users/ckark/Documents/CursorWorkspaces/axon911-harness
 ```
 
 That checkout is the Cursor-only harness (Claude Code plugin removed).
@@ -40,7 +40,7 @@ reachable anyway.
 Jev routing does not depend on that. `~/.cursor/hooks.json` calls
 `harness/dispatch/jev_hooks.py` by absolute path for `beforeSubmitPrompt`,
 `postToolUse`, and `postToolUse` matched to `CreatePlan`. Those hooks run in
-every project, skip workspaces that contain none of the four roots, and inject
+every project, skip workspaces that contain none of the configured roots, and inject
 the routing result. Keep the existing `rtk hook cursor` `preToolUse` entry.
 
 Confirm the wiring before trusting it. The shim takes an event name or a CLI
@@ -72,6 +72,7 @@ Defaults are hardcoded in `harness/lib/paths.py`:
 | `axon911-frontend` | `/Users/ckark/Documents/GitHub/axon911-frontend` |
 | `prepared911` | `/Users/ckark/Documents/GitHub/prepared911` |
 | `vault-core-ux` | `/Users/ckark/Documents/GitHub/vault-core-ux` |
+| `chroma` | `/Users/ckark/Documents/GitHub/chroma` |
 
 `personal-harness` always resolves to the checkout the running code belongs to.
 Override with `HARNESS_ROOTS_JSON`, which wins over everything else:

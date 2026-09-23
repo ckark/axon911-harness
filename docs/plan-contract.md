@@ -1,8 +1,8 @@
 # Axon 911 Plan Contract
 
 Every implementation plan authored in this workspace must satisfy the structure
-below. Fields exist because adversarial-review Phases 2a/2b and the adjudicator
-already consume them. A plan that omits them forces the review harness to
+below. Fields exist because adversarial-review Phases 2a/2b already consume
+them. A plan that omits them forces the review harness to
 reconstruct evidence the author could have provided.
 
 ## Required sections
@@ -14,6 +14,7 @@ List every root the plan will modify:
 - `prepared911`
 - `axon911-frontend`
 - `vault-core-ux`
+- `chroma`
 - `personal-harness`
 
 Do not claim a root is in scope without identifying at least one path under it.
@@ -99,6 +100,26 @@ rather than asking for it again:
 
 A plan that cannot fill a field has not established the corresponding section.
 Do not paper over the gap in the PR body.
+
+### Design intent
+
+Required only when the plan changes behavior a user can see or operate. A plan
+that changes no user-visible behavior states "none" here. Cite principle ids
+from `docs/design-principles.md`.
+
+- **User and situation:** who is doing what, under which conditions.
+- **Desired outcome:** what should become easier, clearer, or more dependable.
+- **Applicable principles:** the specific `DP-*` or `DSP-*` ids that influence
+  the decision, each with the clause that applies.
+- **Observable acceptance:** the behavior that demonstrates success, written as
+  interaction scenarios an implementer can run and a reviewer can watch.
+- **Uncertainty:** what requires operator observation or further research. An
+  agent's own walkthrough does not answer this.
+
+"Aligns with our design principles" is not acceptance. Name the scenario:
+
+> When an operator switches incidents while an update is pending, the interface
+> preserves the pending state and makes its incident association clear.
 
 ### Deferred and out-of-scope
 

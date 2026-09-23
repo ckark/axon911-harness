@@ -46,6 +46,22 @@ and `pnpm test:storybook:ci`.
 - Package boundaries, state ownership, public exports
 - Accessibility when user-visible surfaces changed
 - Story, documentation, and test coverage
+- When the plan has a design-intent section: does the implemented behavior
+  preserve the declared user outcome and the applicable principles in
+  `docs/design-principles.md`? Skip this when the plan declares no design intent.
+
+## Intent findings
+
+Write intent findings as `INTENT-###`. Each one names:
+
+- the principle id (`DP-*` or `DSP-*`)
+- the behavior actually observed
+- the consequence for the user in the declared situation
+- the smallest correction
+
+Label aesthetic preferences and untested hypotheses as such; they are not
+defects. Both principle sources are `draft (advisory)`, so a finding against
+one is at most `medium` and cannot by itself produce `CHANGES REQUIRED`.
 
 ## Output
 

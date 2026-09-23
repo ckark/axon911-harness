@@ -6,8 +6,8 @@ first, then use that root's own instructions and verification commands.
 
 ## Resolve the root first
 
-Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, or
-`personal-harness` owns the change.
+Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, `chroma`,
+or `personal-harness` owns the change.
 
 When implementing (not reviewing only), apply the minimum-code ladder in
 [docs/ponytail.md](ponytail.md) after this contract and the target root's
@@ -97,6 +97,20 @@ the harness root.
 - Note lives under the correct top-level folder
 - No proprietary HTML or generated cache files
 
+### chroma
+
+```bash
+pnpm exec tsc --noEmit
+pnpm check:generator      # WCAG/APCA/gradient gates and the colour-collection shape
+pnpm tokens:figma         # re-emits tokens and validates the Figma payload
+node --check figma-plugin/code.js
+```
+
+`pnpm tokens:figma` rewrites `generatedAt` in `tokens/figma-variables.json` and
+`tokens/figma-snapshot.json`. Revert those two files when the timestamp is the
+only diff. `pnpm figma:push` needs `FIGMA_TOKEN` and `FIGMA_FILE_KEY`; without
+them, apply through the plugin API instead.
+
 ### personal-harness
 
 From the harness root (or the isolated implementation worktree):
@@ -145,8 +159,12 @@ Do not leave sibling call sites untouched after autocorrecting one.
    `before-after`, or migration `changed` / `new_visible`).
 4. Implement the shared contract plus one representative real consumer.
 5. Run focused type, semantic DOM, and (when a delta is declared) rendered
-   product checks for that sentinel.
-6. Stop and correct the contract if the sentinel fails; do not begin the sweep.
+   product checks for that sentinel. When the plan has a design-intent section,
+   also run its observable-acceptance scenarios against that sentinel, covering
+   keyboard interaction, interruption, loading, failure, and recovery where the
+   scenario involves them.
+6. Stop and correct the contract if the sentinel fails, including an unmet
+   outcome; do not begin the sweep.
 7. Migrate remaining consumers and run affected checks.
 8. When a visual delta is declared: stage final content, run `capture-ready`
    (alias `execution-preflight`), batch after captures once, and run one
@@ -188,6 +206,21 @@ If a declared-delta surface cannot be reached live, render against realistic
 data and say so. A green typecheck alone is not rendered evidence for a
 declared visual delta.
 
+## Behavioral evidence
+
+Screenshots establish appearance. Executing the task establishes behavior.
+
+- A change to behavior with no visual delta still needs interaction evidence:
+  a Storybook `play` test, a Playwright run, or a recorded walkthrough of the
+  acceptance scenario. Declare the visual row `expected_unchanged` and attach
+  the interaction evidence separately.
+- When the plan declares a design intent, the sentinel's acceptance scenarios
+  are part of done. An unmet scenario stops the sweep the same way a failing
+  sentinel check does.
+- An agent's successful walkthrough shows the scenario can be completed. It
+  does not show that operators understand the experience. Record that gap in
+  the plan's Uncertainty field rather than closing it.
+
 ## Standing obligations
 
 These are citable personal obligations for implementation work in this
@@ -225,6 +258,9 @@ A task is done only when all of the following are true:
    output pasted or summarized with exit status.
 2. Rendered evidence is attached for every declared visual delta. Parity,
    token-swap, and architecture-only work must not be blocked on screenshots.
+   When the plan declares a design intent, its acceptance scenarios have been
+   run against the sentinel and the interaction evidence is attached, even
+   where the pixels did not change.
 3. Every instance of the changed pattern is fixed at the shared layer, or
    explicitly deferred with a reason.
 4. Generated artifacts named by the plan or standing obligations are current.

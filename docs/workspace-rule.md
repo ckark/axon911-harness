@@ -1,6 +1,6 @@
 # Axon 911 Workspace Rule
 
-Always-on guidance for work across the four roots. Cursor loads this through
+Always-on guidance for work across the configured roots. Cursor loads this through
 `.cursor/rules/prepared911-workspace.mdc` at session start.
 
 ## Roots
@@ -10,6 +10,8 @@ Always-on guidance for work across the four roots. Cursor loads this through
 - `prepared911` — application repository. Consumes the published
   `@prepared911/ui-*` artifacts.
 - `vault-core-ux` — Core UX decisions, standards, and history.
+- `chroma` — colour-ramp and token generator (Next.js app). Emits the CSS
+  tokens, the manifest, and the Figma variables payload.
 - `personal-harness` — private critics, contracts, and orchestration.
 
 ## Source priority
@@ -34,7 +36,7 @@ for an action request, run:
 python3 harness/cli.py jev route-task --request "<sanitized user request>" --json
 ```
 
-The roster covers every skill in all four roots, keyed `<root>#<skill>`. Inspect
+The roster covers every skill in every configured root, keyed `<root>#<skill>`. Inspect
 it with `jev list-skills`.
 
 Then follow the result:
@@ -59,7 +61,7 @@ includes a registered root, `beforeSubmitPrompt` runs `route-task` and
 `rank-docs`, and the next `postToolUse` injects the skill to read and the
 contracts to leave unread. Run the commands below only when that injection
 does not arrive. A prompt that starts with `/` is exempt, as are chats whose
-workspace includes none of the four roots.
+workspace includes none of the configured roots.
 
 `/harness-health-check` fails when those user hooks are missing, and warns
 when delivered turns fall below 90% of eligible turns:

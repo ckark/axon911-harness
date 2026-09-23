@@ -6,13 +6,13 @@ inspection without adding personal agent files to any repository.
 
 ## Workspace roots
 
-- `prepared911`: application source, repository instructions, project skills,
-  documentation, tests, and verification commands.
 - `axon911-frontend`: related frontend source and package history. It is an
   eligible read/write implementation root.
+- `axon911-design`: design-system Storybook and component work (`prepared911/axon911-design`).
 - `vault-core-ux`: Core UX decisions, standards, proposals, and history. It is
   an eligible read/write knowledge root.
 - `personal-harness`: private critics, review contracts, and orchestration.
+  The checkout directory and workspace file are `axon911-harness`.
 
 `axon911-agents` is cloned nearby and is not a live workspace root. See
 `docs/axon911-agents.md` for how to use it as a local overlay and what not to
@@ -27,7 +27,7 @@ shared-frontend-architecture shaped, axon911-frontend is authoritative; see
 ## Open
 
 ```shell
-open -a Cursor "/Users/ckark/Documents/CursorWorkspaces/prepared911-harness/prepared911-personal.code-workspace"
+open -a Cursor "/Users/ckark/Documents/CursorWorkspaces/axon911-harness/axon911-harness.code-workspace"
 ```
 
 On this machine, `~/.local/bin/cursor` is the standalone Cursor Agent CLI and
@@ -36,7 +36,7 @@ use:
 
 ```shell
 "/Applications/Cursor.app/Contents/Resources/app/bin/cursor" \
-  "/Users/ckark/Documents/CursorWorkspaces/prepared911-harness/prepared911-personal.code-workspace"
+  "/Users/ckark/Documents/CursorWorkspaces/axon911-harness/axon911-harness.code-workspace"
 ```
 
 After opening, start a fresh Cursor Agent conversation and run:
@@ -52,7 +52,7 @@ Verify this Prepared911 personal workspace. Do not modify anything.
 There is no harness process to start. Open the `.code-workspace` file and use
 Cursor Agent normally.
 
-- The workspace rule is always-on. It resolves the four roots, preserves
+- The workspace rule is always-on. It resolves the configured roots, preserves
   repository boundaries, and routes normal implementation work to the target
   repository's own instructions.
 - Plans follow `docs/plan-contract.md`. Implementation follows
@@ -120,8 +120,8 @@ target=origin/trunk...HEAD
 scope=caller toolbar and shared UI impact
 ```
 
-This runs the formal specialist and adjudication workflow without applying
-fixes.
+This runs the formal specialist review without applying fixes. The human PR
+reviewer arbitrates; there is no adjudicator.
 
 ## Formal review
 
@@ -144,8 +144,8 @@ target=origin/trunk...HEAD
 scope=<optional constraints>
 ```
 
-Formal review is read-only. Applying adjudicated fixes is a separate task and
-must satisfy `docs/implementation-contract.md`.
+Formal review is read-only. Applying the fixes a review finds is a separate
+task and must satisfy `docs/implementation-contract.md`.
 
 ## TypeSafe Jev (bounded judgments)
 
