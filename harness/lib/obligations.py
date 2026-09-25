@@ -96,6 +96,7 @@ ADAPTERS: Dict[str, List[Obligation]] = {
     ],
     "vault-core-ux": [],
     "chroma": [],
+    "axon911-design": [],
     "personal-harness": [],
 }
 

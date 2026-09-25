@@ -78,6 +78,13 @@ class JevHookTests(unittest.TestCase):
         )
         self.assertEqual(len(self.spawned), 1)
 
+    def test_axon911_design_root_is_registered(self) -> None:
+        jev_hooks.handle_before_submit(
+            self._payload(workspace_roots=["/Users/ckark/Documents/GitHub/axon911-design"]),
+            spawn=self.spawned.append,
+        )
+        self.assertEqual(len(self.spawned), 1)
+
     def test_slash_prompt_is_skipped(self) -> None:
         result = jev_hooks.handle_before_submit(
             self._payload(prompt="/plan-check"),

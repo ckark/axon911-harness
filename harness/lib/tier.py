@@ -70,6 +70,7 @@ SURFACE_PATTERNS = {
     ),
     "vault-core-ux": (),
     "chroma": (),
+    "axon911-design": (r"^src/index\.ts$",),
     "personal-harness": (),
 }
 

@@ -39,7 +39,7 @@ SKILL_SUBDIRS = (
     os.path.join(".agents", "skills"),
 )
 # The Choice ceiling is 255 options; this stays well under it while covering
-# every skill across all roots today (119).
+# every skill across all roots, including axon911-design.
 MAX_ROSTER_CANDIDATES = 160
 SUMMARY_MAX_CHARS = 200
 # Descriptions only. rank_docs must not read these files into the Jev state.
@@ -103,13 +103,13 @@ def _skill_roots() -> Dict[str, str]:
         return {"personal-harness": os.path.dirname(SKILL_DIR)}
 
 
-def _scan_root_skills(root_id: str, root_path: str) -> List[Dict[str, str]]:
-    """Skills in one root.
+def _scan_tree_skills(root_id: str, root_path: str) -> List[Dict[str, str]]:
+    """Skills published by one checkout of a root.
 
-    A root may expose the same skill twice under genuinely different directories
-    (prepared911 links `.cursor/skills` at `.agent/skills` while `.agents/skills`
-    also exists). First match wins, so the copy Cursor itself loads is the one
-    offered as a candidate.
+    A checkout may expose the same skill twice under genuinely different
+    directories (prepared911 links `.cursor/skills` at `.agent/skills` while
+    `.agents/skills` also exists). First match wins, so the copy Cursor itself
+    loads is the one offered as a candidate.
     """
     found: List[Dict[str, str]] = []
     seen_dirs = set()
@@ -137,6 +137,40 @@ def _scan_root_skills(root_id: str, root_path: str) -> List[Dict[str, str]]:
                     "summary": _summary_from_skill(skill_path),
                 }
             )
+    return found
+
+
+def _skill_bases(root_path: str) -> List[str]:
+    """Checkouts to read skills from.
+
+    The configured checkout wins when it already publishes skills. Otherwise
+    linked worktrees are included, so a root registered at its primary path
+    still offers skills that exist only on another branch's worktree.
+    """
+    if not root_path:
+        return []
+    primary = os.path.realpath(root_path)
+    if _scan_tree_skills("", primary):
+        return [primary]
+    from .paths import linked_worktree_paths
+
+    bases = [primary]
+    for extra in linked_worktree_paths(primary):
+        if extra not in bases:
+            bases.append(extra)
+    return bases
+
+
+def _scan_root_skills(root_id: str, root_path: str) -> List[Dict[str, str]]:
+    """Skills in one root. Configured checkout first, then linked worktrees."""
+    found: List[Dict[str, str]] = []
+    seen_names = set()
+    for base in _skill_bases(root_path):
+        for item in _scan_tree_skills(root_id, base):
+            if item["label"] in seen_names:
+                continue
+            seen_names.add(item["label"])
+            found.append(item)
     return found
 
 
@@ -290,10 +324,11 @@ def skill_path_for(skill_id: str) -> str:
         return os.path.realpath(candidate) if os.path.isfile(candidate) else ""
     root_id, name = skill_id.split("#", 1)
     root_path = _skill_roots().get(root_id, "")
-    for subdir in SKILL_SUBDIRS:
-        candidate = os.path.join(root_path, subdir, name, "SKILL.md")
-        if os.path.isfile(candidate):
-            return os.path.realpath(candidate)
+    for base in _skill_bases(root_path):
+        for subdir in SKILL_SUBDIRS:
+            candidate = os.path.join(base, subdir, name, "SKILL.md")
+            if os.path.isfile(candidate):
+                return os.path.realpath(candidate)
     return ""
 
 
@@ -303,7 +338,9 @@ def _skill_body(skill_id: str) -> str:
         root_id, name = skill_id.split("#", 1)
         root_path = _skill_roots().get(root_id, "")
         candidates = [
-            os.path.join(root_path, subdir, name, "SKILL.md") for subdir in SKILL_SUBDIRS
+            os.path.join(base, subdir, name, "SKILL.md")
+            for base in _skill_bases(root_path)
+            for subdir in SKILL_SUBDIRS
         ]
     else:
         candidates = [os.path.join(SKILL_DIR, skill_id, "SKILL.md")]

@@ -7,7 +7,7 @@ first, then use that root's own instructions and verification commands.
 ## Resolve the root first
 
 Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, `chroma`,
-or `personal-harness` owns the change.
+`axon911-design`, or `personal-harness` owns the change.
 
 When implementing (not reviewing only), apply the minimum-code ladder in
 [docs/ponytail.md](ponytail.md) after this contract and the target root's
@@ -110,6 +110,20 @@ node --check figma-plugin/code.js
 `tokens/figma-snapshot.json`. Revert those two files when the timestamp is the
 only diff. `pnpm figma:push` needs `FIGMA_TOKEN` and `FIGMA_FILE_KEY`; without
 them, apply through the plugin API instead.
+
+### axon911-design
+
+One package, `@axon911/design`. Storybook is the repository root (port 5204).
+Do not import Radix or `@prepared911/ui-*`. Do not hand-edit the token files
+named in `src/tokens/SOURCE.json`.
+
+```bash
+pnpm check
+pnpm typecheck
+pnpm test:unit --run
+pnpm test:storybook --run
+pnpm localization:check
+```
 
 ### personal-harness
 

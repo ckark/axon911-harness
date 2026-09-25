@@ -15,6 +15,7 @@ List every root the plan will modify:
 - `axon911-frontend`
 - `vault-core-ux`
 - `chroma`
+- `axon911-design`
 - `personal-harness`
 
 Do not claim a root is in scope without identifying at least one path under it.

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -331,6 +333,56 @@ class JevCliTests(unittest.TestCase):
                 self.assertEqual(cmd_jev(["eval", "--fixture", fixture, "--json"]), 0)
         finally:
             jev_module._default_transport = previous
+
+
+class DesignSkillRosterTests(unittest.TestCase):
+    """Skills that exist only on a linked worktree are still invocable."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.mkdtemp()
+        self.primary = os.path.join(self.tmp, "axon911-design")
+        os.makedirs(self.primary)
+        subprocess.check_call(
+            ["git", "init", "-q"], cwd=self.primary, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        subprocess.check_call(["git", "config", "user.email", "d@e.com"], cwd=self.primary)
+        subprocess.check_call(["git", "config", "user.name", "D"], cwd=self.primary)
+        with open(os.path.join(self.primary, "README.md"), "w", encoding="utf-8") as handle:
+            handle.write("primary\n")
+        subprocess.check_call(["git", "add", "-A"], cwd=self.primary, stdout=subprocess.DEVNULL)
+        subprocess.check_call(
+            ["git", "commit", "-qm", "base"], cwd=self.primary, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        self.worktree = os.path.join(self.tmp, "design-agents")
+        subprocess.check_call(
+            ["git", "worktree", "add", "-q", "-b", "agents", self.worktree],
+            cwd=self.primary,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        skill_dir = os.path.join(self.worktree, ".agents", "skills", "localization-copy")
+        os.makedirs(skill_dir)
+        with open(os.path.join(skill_dir, "SKILL.md"), "w", encoding="utf-8") as handle:
+            handle.write("---\nname: localization-copy\ndescription: Design-repo copy rules.\n---\n\nUse props.\n")
+        self._old = os.environ.get("HARNESS_AXON911_DESIGN_ROOT")
+        os.environ["HARNESS_AXON911_DESIGN_ROOT"] = self.primary
+
+    def tearDown(self) -> None:
+        if self._old is None:
+            os.environ.pop("HARNESS_AXON911_DESIGN_ROOT", None)
+        else:
+            os.environ["HARNESS_AXON911_DESIGN_ROOT"] = self._old
+        shutil.rmtree(self.tmp)
+
+    def test_worktree_skill_is_on_the_roster_and_readable(self) -> None:
+        from lib.judgments import load_skill_roster, skill_path_for
+
+        roster = load_skill_roster(["axon911-design"])
+        ids = [item["id"] for item in roster]
+        self.assertIn("axon911-design#localization-copy", ids)
+        path = skill_path_for("axon911-design#localization-copy")
+        self.assertTrue(path.endswith(os.path.join("design-agents", ".agents", "skills", "localization-copy", "SKILL.md")))
+        self.assertTrue(os.path.isfile(path))
 
 
 if __name__ == "__main__":

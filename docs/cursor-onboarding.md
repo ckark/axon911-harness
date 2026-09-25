@@ -73,6 +73,7 @@ Defaults are hardcoded in `harness/lib/paths.py`:
 | `prepared911` | `/Users/ckark/Documents/GitHub/prepared911` |
 | `vault-core-ux` | `/Users/ckark/Documents/GitHub/vault-core-ux` |
 | `chroma` | `/Users/ckark/Documents/GitHub/chroma` |
+| `axon911-design` | `/Users/ckark/Documents/GitHub/axon911-design` |
 
 `personal-harness` always resolves to the checkout the running code belongs to.
 Override with `HARNESS_ROOTS_JSON`, which wins over everything else:

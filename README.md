@@ -9,6 +9,7 @@ inspection without adding personal agent files to any repository.
 - `axon911-frontend`: related frontend source and package history. It is an
   eligible read/write implementation root.
 - `axon911-design`: design-system Storybook and component work (`prepared911/axon911-design`).
+  It is an eligible read/write implementation root.
 - `vault-core-ux`: Core UX decisions, standards, proposals, and history. It is
   an eligible read/write knowledge root.
 - `personal-harness`: private critics, review contracts, and orchestration.

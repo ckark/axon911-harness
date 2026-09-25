@@ -12,6 +12,8 @@ Always-on guidance for work across the configured roots. Cursor loads this throu
 - `vault-core-ux` — Core UX decisions, standards, and history.
 - `chroma` — colour-ramp and token generator (Next.js app). Emits the CSS
   tokens, the manifest, and the Figma variables payload.
+- `axon911-design` — hand-rolled `@axon911/design` package. Storybook is the
+  repo root. It does not own `@prepared/ui-*`.
 - `personal-harness` — private critics, contracts, and orchestration.
 
 ## Source priority
