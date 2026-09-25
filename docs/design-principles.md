@@ -28,14 +28,12 @@ not use them.
 
 | Source | URL | Last edited | Status |
 |---|---|---|---|
-| Design principles | https://app.notion.com/p/542605d9003c44ca96c8535a95b39282 | 2026-09-18 | `draft (advisory)` |
-| Design-system principles | https://app.notion.com/p/3dd0b9d7d13981bb9f4ae0c09b34aa78 | 2026-09-18 | `draft (advisory)` |
+| Design principles | https://app.notion.com/p/542605d9003c44ca96c8535a95b39282 | 2026-09-18 | `authoritative (Notion title still WIP)` |
+| Design-system principles | https://app.notion.com/p/3dd0b9d7d13981bb9f4ae0c09b34aa78 | 2026-09-18 | `authoritative (Notion title still WIP)` |
 
-Both pages are titled `[WIP]` and are unverified in Notion, with open comment
-threads. A finding against a draft principle is advisory: at most `medium`, and
-it cannot alone produce `CHANGES REQUIRED`. Re-check both pages before treating
-any principle as an accepted requirement, and update the date and status here
-when that changes.
+Notion page titles may still show `[WIP]`; for harness review, treat the DP and
+DSP tables below as authoritative. Re-check Notion when resolving conflicts with
+this file, and update the date and status here when Notion materially changes.
 
 ## Design principles
 

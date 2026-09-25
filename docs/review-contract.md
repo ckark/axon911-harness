@@ -45,9 +45,9 @@ For every finding provide:
 
 - **ID:** Domain-prefixed identifier (`DS-###`, `FA-###`, `DOCS-DRIFT-###`,
   `INTENT-###`, …). An `INTENT-###` finding names the principle id, the
-  observed behavior, the user consequence, and the smallest correction. Against
-  a draft principle it is at most `medium` and cannot alone produce
-  `CHANGES REQUIRED`.
+  observed behavior, the user consequence, and the smallest correction. Use
+  full severity when citing DP-* or DSP-* ids from
+  [design-principles.md](design-principles.md) (authoritative for review).
 - **Severity:** `critical`, `high`, `medium`, `low`, or `informational`
 - **Location:** Exact `<ref>:<path>:<line>`, plan section, public API, or command output
 - **Evidence:** What was directly observed
