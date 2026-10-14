@@ -95,7 +95,8 @@ review, omit a concern that clearly does not apply and say why.
 
 | Change signal | Concerns | Real panel | Required evidence |
 |---|---|---|---|
-| `axon911-frontend/packages/ui-core/**`, tokens, themes, icons, public UI API | Design system, architecture, performance, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | Docs design MDX, generated API registry, Storybook, consumers |
+| `axon911-frontend/packages/ui/**` (the design system), tokens, themes, icons, public UI API | Design system, architecture, performance, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | `pnpm --filter ./packages/ui check`, generated API registry, docs design MDX, the package's own Storybook, consumers |
+| Legacy `axon911-frontend/packages/ui-core/**` until CORE-1276 deletes it | Design system, architecture, performance, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | Docs design MDX, generated API registry, Storybook, consumers |
 | Other `axon911-frontend/packages/ui-*/**` | Design system, architecture, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | Package exports, dependencies, docs coverage, stories, consumers |
 | Dispatch/Responder/Caller React change | Architecture; add others by risk | `bugbot`; `design-system-critic` when shared UI changed | Vite rules, Apollo/state evidence, affected consumers |
 | Beacon or Docs React change | Architecture; add others by risk | `bugbot`; `design-system-critic` when shared UI changed | Next.js/RSC rules, server/client boundaries |

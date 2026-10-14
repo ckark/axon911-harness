@@ -15,10 +15,11 @@ When implementing (not reviewing only), apply the minimum-code ladder in
 harness contracts to open is decided by `jev rank-docs` in
 [docs/workspace-rule.md](workspace-rule.md); do not read the dropped ids.
 
-axon911-frontend owns every
-`@prepared/ui-*` package post CORE-754 (`AGENTS.md:121`, `docs/VENDORING.md`) and
-is the architectural authority for the Axon 911 ecosystem; a ui-* bug fix belongs
-there, not in prepared911's `turbo/packages/ui-*` mirror. axon911-frontend is
+axon911-frontend owns the design system, `packages/ui` (`@prepared911/ui`, being
+renamed `@axon911/ui` in CORE-1276), and every legacy `@prepared911/ui-*` package
+post CORE-754 (`docs/VENDORING.md`). It is the architectural authority for the
+Axon 911 ecosystem; a ui-* bug fix belongs there, not in prepared911's
+`turbo/packages/ui-*` mirror. CORE-1276 deletes the legacy `packages/ui-*`. axon911-frontend is
 flat; prepared911 nests under `turbo/`. Read that root's `AGENTS.md` (vault
 `.cursorrules`, or harness contracts) before editing. Do not transfer
 Prepared911 commands or conventions to another root.
@@ -49,10 +50,11 @@ Follow the repository's pre-commit and branch policy in `AGENTS.md`.
 
 ### axon911-frontend
 
-**`pnpm check` reports nothing on `packages/ui-*` or `apps/docs`.** oxlint
-ignores both trees (`packages/tooling-config/src/oxlint/config.ts:37-58`,
-CORE-754 debt, `docs/LINT-POLICY.md:53-55`). A green `pnpm check` is not evidence
-for those paths, and neither is a green CI `lint` job.
+**`pnpm check` reports nothing on `packages/ui`, `packages/ui-*`, or `apps/docs`.**
+Root oxlint ignores all three: `packages/ui` has its own config, and the others are
+in `DESIGN_SYSTEM_DEBT_IGNORES` (`packages/tooling-config/src/oxlint/design-system-consumer.mjs`,
+CORE-754 debt). A green `pnpm check` is not evidence for those paths, and neither
+is a green CI `lint` job. For `packages/ui`, run `pnpm --filter ./packages/ui check`.
 
 ```bash
 pnpm check                 # ultracite check + feature-flags:check + intent:check (root-level)
@@ -66,8 +68,9 @@ out per package through turbo.
 
 | Path | What actually covers it |
 |---|---|
-| `packages/ui-*` | typecheck, unit tests, Storybook build and test, the `apps/auth` webpack build (ui-core only) |
-| `apps/**`, `remotes/**` | Playwright from `apps/automation` after `pnpm build:mf`; `apps/storybook` globs `packages/*/src` only, so these have no Storybook coverage |
+| `packages/ui` | `pnpm --filter ./packages/ui check` (ultracite plus registry, catalog, skills, BUGBOT, and migration-guide drift), typecheck, `pnpm --filter ./packages/ui test:unit --run`, its own Storybook (`test:storybook`, port 5206) |
+| Legacy `packages/ui-*` | typecheck, unit tests, Storybook build and test in apps/storybook, the `apps/auth` webpack build (ui-core only) |
+| `apps/**`, `remotes/**` | Playwright from `apps/automation` after `pnpm build:mf`; `apps/storybook` globs `packages/ui-*/src` and the staff panel only, so these have no Storybook coverage |
 | `remotes/**`, `mfe-core` | `pnpm mf:types:check` |
 | `packages/feature-flags` | `pnpm feature-flags:check` |
 

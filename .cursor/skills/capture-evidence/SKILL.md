@@ -14,7 +14,8 @@ it cannot silently go stale.
 
 | Changed | Route |
 |---|---|
-| `packages/ui-*` in axon911-frontend | Storybook — `pnpm storybook` (port 5203) |
+| `packages/ui` (the design system) in axon911-frontend | Storybook — `pnpm --filter ./packages/ui storybook` (port 5206) |
+| Legacy `packages/ui-*` in axon911-frontend, until CORE-1276 deletes them | Storybook — `pnpm storybook` (apps/storybook, port 5203) |
 | `packages/ui-*` or Dispatch modules in prepared911 | Storybook — `just storybook run` (port 3005) |
 | `apps/**`, `remotes/**` in axon911-frontend | Playwright — `pnpm build:mf` then `apps/automation` |
 
@@ -71,15 +72,19 @@ Embed hosted image URLs in the manifest (`before_url` / `after_url`) when Chroma
 
 ## Procedure
 
-1. Identify the changed component and confirm it has a story. `ui-takeover-page`
-   has one story and no tests, so a change there usually means writing the story
-   first.
+1. Identify the changed component and confirm it has a story. In `packages/ui`,
+   stories live in the component's folder. A legacy package without stories, such
+   as `ui-takeover-page`, means writing the story first.
 2. Start the surface:
 
    ```bash
-   pnpm storybook            # packages/ui-*
-   pnpm build:mf             # apps/** and remotes/** first
+   pnpm --filter ./packages/ui storybook   # packages/ui (port 5206)
+   pnpm storybook                          # legacy packages/ui-* (apps/storybook, port 5203)
+   pnpm build:mf                           # apps/** and remotes/** first
    ```
+
+   Filter `packages/ui` by path. Its package name changes from `@prepared911/ui`
+   to `@axon911/ui` in CORE-1276.
 
 3. Open the story or route in the browser and capture the **after** state. When
    changing something that already exists, capture **before and after** — the
