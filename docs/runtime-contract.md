@@ -147,7 +147,7 @@ Prepared911 and Axon each have independent IDs:
 
 Prepared911 `consumer-only` mirror intent suppresses Prepared docs-registry and
 docs-page obligations while retaining allowlist and surface-declared evidence.
-Axon `packages/ui-*` remains authoritative. Screenshot gates follow declared
+Axon `packages/ui` is authoritative. Screenshot gates follow declared
 evidence mode (`none` / `after` / `before-after`), not inferred visibility.
 Token swaps use `none` or migration `expected_unchanged`.
 

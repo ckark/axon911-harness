@@ -32,6 +32,17 @@ class CommandSpecTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(reason, "push.oid-requires-git-rev-parse-head")
 
+    def test_design_system_gates_require_the_package_check(self) -> None:
+        ok, _ = validate_attestation_command(
+            "axon911-frontend.ds-gates",
+            ["pnpm", "--filter", "./packages/ui", "check"],
+        )
+        self.assertTrue(ok)
+        # Root `pnpm check` ignores packages/ui, so it cannot attest the gate.
+        ok, reason = validate_attestation_command("axon911-frontend.ds-gates", ["pnpm", "check"])
+        self.assertFalse(ok)
+        self.assertEqual(reason, "check-command-mismatch")
+
 
 if __name__ == "__main__":
     unittest.main()

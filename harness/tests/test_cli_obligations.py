@@ -120,13 +120,13 @@ class PlanProfileTests(unittest.TestCase):
         profile = {
             "profiled": True,
             "strict": True,
-            "scope": ["packages/ui-core/**"],
+            "scope": ["packages/ui/**"],
             "path_surfaces": {},
-            "evidence_states": {"packages/ui-core/**": "before-after"},
+            "evidence_states": {"packages/ui/**": "before-after"},
         }
         selection = select_obligations(
             "axon911-frontend",
-            ["packages/ui-core/src/components/typography/styles.scss"],
+            ["packages/ui/src/components/typography/styles.module.css"],
             profile,
             "T0",
             family="git-commit",

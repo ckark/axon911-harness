@@ -138,8 +138,10 @@ Two flags matter in day-to-day use:
   ```bash
   python3 harness/cli.py attest --root <root> --obligation-id push.oid -- git rev-parse HEAD
   ```
-- **Editing `packages/ui-*` triggers axon obligations** — `ui-allowlist`,
-  `docs-registry`, `docs-page`. `rendered-evidence` is added only when the
+- **Editing `packages/ui` triggers axon obligations** — `ui-allowlist`,
+  `docs-registry`, `docs-page`, and `ds-gates` (`pnpm --filter ./packages/ui
+  check`). A legacy `packages/ui-*` edit triggers none of these, because those
+  files are generated from `packages/ui`. `rendered-evidence` is added only when the
   plan declares a visual delta (`after` / `before-after`, or a migration row
   with `changed` / `new_visible`). Token swaps declare `none` /
   `expected_unchanged` and do not need screenshots. Satisfy required checks
@@ -147,10 +149,12 @@ Two flags matter in day-to-day use:
 
 ## Verification blind spots the harness exists to cover
 
-- `pnpm check` and `pnpm lint` give **no signal** on `packages/ui-*` or
-  `apps/docs` — oxlint ignores both trees (CORE-754 debt). A green `pnpm check`
-  is not evidence there. Use `pnpm turbo run typecheck`, `pnpm test:unit:run`,
-  and `pnpm test:storybook:ci`.
+- `pnpm check` and `pnpm lint` give **no signal** on `packages/ui`,
+  `packages/ui-*`, or `apps/docs` — root oxlint ignores all three (`packages/ui`
+  has its own config; the others are CORE-754 debt). A green `pnpm check` is not
+  evidence there. Use `pnpm --filter ./packages/ui check` for `packages/ui`, and
+  `pnpm turbo run typecheck`, `pnpm test:unit:run`, and `pnpm test:storybook:ci`
+  for the legacy packages.
 - `pnpm turbo run typecheck` can report all-green **from cache** while a
   generated file is stale, because `@prepared/feature-staff-panel`'s typecheck
   is what runs `generate-ui-components.mjs --check`. When a change adds or

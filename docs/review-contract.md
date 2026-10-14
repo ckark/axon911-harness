@@ -74,13 +74,13 @@ scope reviewed (no four-ref manifest).
   plan's fix is wrong.
 - The target repository's instructions, public APIs, tests, and actual behavior
   take precedence over generic framework guidance.
-- The docs app is a required benchmark when `packages/ui-*` or `apps/docs`
-  changed; stale docs must be reported as `DOCS-DRIFT`. Prefer the
+- The docs app is a required benchmark when `packages/ui`, `packages/ui-*`, or
+  `apps/docs` changed; stale docs must be reported as `DOCS-DRIFT`. Prefer the
   `prepared-docs` MCP over hand-read MDX.
 
 ## Docs benchmark
 
-Required only when changed paths touch `packages/ui-*`, `apps/docs`, or the
+Required only when changed paths touch `packages/ui`, `packages/ui-*`, `apps/docs`, or the
 prepared911 mirror. Source from the `prepared-docs` MCP when available.
 
 ```markdown

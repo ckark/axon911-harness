@@ -99,7 +99,7 @@ questions with no file edits, an explicitly named skill or slash command, and
 continuations of work already ranked in this session.
 
 Identify the target root, then read that root's own `AGENTS.md`. axon911-frontend
-is flat (`packages/ui-*`, `apps/docs`, `apps/storybook`); prepared911 nests under
+is flat (`packages/ui`, `apps/docs`, `apps/storybook`); prepared911 nests under
 `turbo/`. Never transfer one root's paths, commands, or conventions to another.
 
 In axon911-frontend, run `pnpm dlx @tanstack/intent@latest list` before a
@@ -107,8 +107,10 @@ substantial change, per the generated block at the top of its `AGENTS.md`.
 
 ## Verification blind spot
 
-`pnpm check` and `pnpm lint` give **no signal** on `packages/ui-*` or
-`apps/docs`. In those paths evidence means `pnpm turbo run typecheck`,
+`pnpm check` and `pnpm lint` give **no signal** on `packages/ui`,
+`packages/ui-*`, or `apps/docs`. For `packages/ui`, evidence means
+`pnpm --filter ./packages/ui check` and its own Storybook tests. For the legacy
+packages and `apps/docs`, it means `pnpm turbo run typecheck`,
 `pnpm test:unit:run`, and `pnpm test:storybook:ci`.
 
 ## Default posture: mechanical on, panel off

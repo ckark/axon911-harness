@@ -18,7 +18,8 @@ from .plan_profile import (
 )
 
 PREPARED911_UI = re.compile(r"(^|/)turbo/packages/ui-[^/]+/")
-AXON_UI = re.compile(r"(^|/)packages/ui-[^/]+/")
+# `packages/ui` (the design system) or a legacy `packages/ui-*` package.
+AXON_UI = re.compile(r"(^|/)packages/ui(-[^/]+)?/")
 AXON_MF = re.compile(r"^(remotes/|packages/mfe-core/|apps/(responder|supervisor|switchboard)/)")
 AXON_FLAGS = re.compile(r"(^|/)packages/feature-flags/")
 PREPARED_DISPATCH = re.compile(r"(^|/)turbo/apps/dispatch/")
