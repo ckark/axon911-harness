@@ -22,6 +22,10 @@ Use base-branch instructions only. Keep output fixed and bounded. Do not
 attach personal OAuth, MCP, Slack, deployment, reviewer, or unrelated write
 capability.
 
+When harness CLI is available in a trusted environment, prefer read-only
+`ship-plan` and `bundle verify` signals over rerunning product CI. Those
+commands do not mutate git state or install PR-controlled packages.
+
 ## Output
 
 ```text

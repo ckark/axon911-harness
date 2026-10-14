@@ -10,7 +10,13 @@ from .constants import ROOT_IDS
 Obligation = Dict[str, str]
 
 PREPARED911_UI = r"(^|/)turbo/packages/ui-[^/]+/"
-AXON_UI = r"(^|/)packages/ui-[^/]+/"
+# The design system is `packages/ui` (`@prepared911/ui`, being renamed `@axon911/ui`
+# in CORE-1276). The staff-panel allowlist and the docs registry are generated from
+# it, so only its changes can make them stale.
+AXON_DS = r"(^|/)packages/ui/"
+# `packages/ui` or a legacy `packages/ui-*` package. CORE-1276 deletes the legacy
+# packages; until then their stories still render in apps/storybook.
+AXON_UI = r"(^|/)packages/ui(-[^/]+)?/"
 # Module Federation type contract: remotes expose modules the shells consume,
 # and CI rejects drift via `pnpm mf:types:check`.
 AXON_MF = r"^(remotes/|packages/mfe-core/|apps/(responder|supervisor|switchboard)/)"
@@ -22,9 +28,10 @@ ADAPTERS: Dict[str, List[Obligation]] = {
             "id": "axon911-frontend.ui-allowlist",
             "kind": "ui_allowlist",
             "path": "packages/feature-staff-panel/src/components/annotation/utils/ui-components.generated.ts",
-            "trigger": AXON_UI,
-            # Staleness rides on `pnpm turbo run typecheck`, which runs
-            # generate-ui-components.mjs --check. There is no separate task.
+            "trigger": AXON_DS,
+            # generate-ui-components.mjs reads @prepared911/ui exports. Staleness
+            # rides on the feature-staff-panel `typecheck` script, which runs the
+            # generator with --check. There is no separate task.
             "check": "pnpm turbo run typecheck",
             "regenerate": "pnpm gen:ui-components",
         },
@@ -32,9 +39,10 @@ ADAPTERS: Dict[str, List[Obligation]] = {
             "id": "axon911-frontend.docs-registry",
             "kind": "docs_registry",
             "path": "apps/docs/generated/component-api-registry.json",
-            "trigger": AXON_UI,
-            # No CI job regenerates or drift-checks this file, so the harness
-            # must regenerate and compare rather than trust an empty diff.
+            "trigger": AXON_DS,
+            # apps/docs/scripts/component-docgen.config.json scans `packages/ui`
+            # only. No CI job regenerates or drift-checks this file, so the
+            # harness must regenerate and compare rather than trust an empty diff.
             "check": "pnpm --filter docs docs:generate-component-docs",
             "regenerate": "pnpm --filter docs docs:generate-component-docs",
         },
@@ -42,16 +50,31 @@ ADAPTERS: Dict[str, List[Obligation]] = {
             "id": "axon911-frontend.docs-page",
             "kind": "docs_page",
             "path": "apps/docs/mdx/design",
-            "trigger": AXON_UI,
+            "trigger": AXON_DS,
+        },
+        {
+            "id": "axon911-frontend.ds-gates",
+            "kind": "package_gates",
+            "path": "",
+            "trigger": AXON_DS,
+            # Root lint ignores `packages/ui`, so `pnpm check` gives no signal
+            # there. The package's own check runs ultracite plus the registry,
+            # catalog, skills, BUGBOT, and migration-guide drift checks. Filter by
+            # path: the package name changes in CORE-1276.
+            "check": "pnpm --filter ./packages/ui check",
         },
         {
             "id": "axon911-frontend.rendered-evidence",
             "kind": "rendered_evidence",
             "path": "",
             "trigger": AXON_UI,
-            # apps/storybook globs packages/*/src only, so app and remote
-            # changes have no Storybook coverage and need Playwright instead.
-            "check": "pnpm test:storybook:ci",
+            # `packages/ui` stories run in that package's own Storybook (port
+            # 5206): `pnpm --filter ./packages/ui test:storybook --run`. Legacy
+            # `packages/ui-*` stories run in apps/storybook (`pnpm test:storybook:ci`)
+            # until CORE-1276 deletes them. apps/storybook globs `packages/ui-*/src`
+            # and the staff panel only, so app and remote changes have no
+            # Storybook coverage and need Playwright instead.
+            "check": "pnpm --filter ./packages/ui test:storybook --run",
         },
         {
             "id": "axon911-frontend.mf-types",
@@ -95,6 +118,8 @@ ADAPTERS: Dict[str, List[Obligation]] = {
         },
     ],
     "vault-core-ux": [],
+    "chroma": [],
+    "axon911-design": [],
     "personal-harness": [],
 }
 
@@ -124,16 +149,13 @@ def triggered_obligations(root_id: str, changed_paths: Sequence[str]) -> List[Ob
 
 
 def required_ids(root_id: str, changed_paths: Sequence[str], user_visible: bool, existing_surface: bool) -> List[str]:
-    ids = [item["id"] for item in triggered_obligations(root_id, changed_paths)]
-    if user_visible:
-        rendered = "%s.rendered-evidence" % root_id
-        if rendered not in ids and obligations_for(root_id):
-            ids.append(rendered)
-    if not user_visible:
-        ids = [item for item in ids if not item.endswith(".rendered-evidence")]
-    if user_visible and existing_surface:
-        ids.append("%s.rendered-evidence.before-after" % root_id)
-    return ids
+    """Return path-triggered IDs. Visibility flags do not invent screenshot gates."""
+    _ = (user_visible, existing_surface)
+    return [
+        item["id"]
+        for item in triggered_obligations(root_id, changed_paths)
+        if not item["id"].endswith(".rendered-evidence")
+    ]
 
 
 def product_ui_enabled(root_id: str) -> bool:

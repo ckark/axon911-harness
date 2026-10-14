@@ -8,7 +8,7 @@ as it exists on `ckark/harness-attest-evals`, which both hosts share.
 This Cursor workspace uses the checkout at:
 
 ```
-/Users/ckark/Documents/CursorWorkspaces/prepared911-harness
+/Users/ckark/Documents/CursorWorkspaces/axon911-harness
 ```
 
 That checkout is the Cursor-only harness (Claude Code plugin removed).
@@ -37,6 +37,12 @@ Option 1 is preferred: the skills and `docs/` contracts resolve by relative path
 from this repo, and option 2 leaves them dangling unless the whole repo is
 reachable anyway.
 
+Jev routing does not depend on that. `~/.cursor/hooks.json` calls
+`harness/dispatch/jev_hooks.py` by absolute path for `beforeSubmitPrompt`,
+`postToolUse`, and `postToolUse` matched to `CreatePlan`. Those hooks run in
+every project, skip workspaces that contain none of the configured roots, and inject
+the routing result. Keep the existing `rtk hook cursor` `preToolUse` entry.
+
 Confirm the wiring before trusting it. The shim takes an event name or a CLI
 subcommand, so `--help` is not a valid probe — it prints `unknown command` and
 still exits 0. Use these instead:
@@ -46,7 +52,7 @@ still exits 0. Use these instead:
 python3 .cursor/hooks/runtime_gate.py benchmark --json
 
 # 2. The shared package is intact.
-python3 -m unittest discover -s harness/tests -p 'test_*.py'   # 216 tests
+python3 -m unittest discover -s harness/tests -p 'test_*.py'   # 170+ tests
 
 # 3. Scoring works against a real checkout.
 cd /path/to/axon911-frontend && \
@@ -66,6 +72,8 @@ Defaults are hardcoded in `harness/lib/paths.py`:
 | `axon911-frontend` | `/Users/ckark/Documents/GitHub/axon911-frontend` |
 | `prepared911` | `/Users/ckark/Documents/GitHub/prepared911` |
 | `vault-core-ux` | `/Users/ckark/Documents/GitHub/vault-core-ux` |
+| `chroma` | `/Users/ckark/Documents/GitHub/chroma` |
+| `axon911-design` | `/Users/ckark/Documents/GitHub/axon911-design` |
 
 `personal-harness` always resolves to the checkout the running code belongs to.
 Override with `HARNESS_ROOTS_JSON`, which wins over everything else:
@@ -90,8 +98,18 @@ python3 harness/cli.py <command>
 | `ui-principles` | Diff-scoped lint/SCSS checks on `packages/ui-*` |
 | `conformance` | Compare a registered plan's declared scope against actual changes |
 | `attest` | Run a verification command and bind its result to a fingerprint |
-| `register-plan` | Persist a plan hash, tier, and declared scope |
-| `issue-review-receipt` | Record a review at a tier |
+| `register-plan` | Persist plan hash, tier, scope, base, mirror intent, path surfaces |
+| `preview-obligations` | Read-only obligation and conformance preview |
+| `record-evidence` | Hash-bind before/after rendered evidence artifacts |
+| `ship-plan` | Read-only push readiness with structured recovery |
+| `session-status` / `handoff` | Privacy-safe session lifecycle |
+| `bundle` | Cross-root publication manifest create/verify |
+| `verify --explain` | Mechanical coverage with recovery categories |
+| `issue-review-receipt` | Record a review at a tier after validating `--report` |
+| `jev route-task` / `jev rank-docs` | Fallback only. User hooks in `~/.cursor/hooks.json` run these on prompt submit for a registered root and inject the result |
+| `jev route-review` | `skip` launches no in-session panel; `route` launches only listed critics; `fallback` is the full panel |
+| `jev list-skills` / `jev routing-status` | Cross-root roster; health check FAILs when the user hooks are missing and WARNs when delivered turns are under 90% of eligible turns |
+| `jev` (other) | Bounded semantic checks (`smoke`, `assess-plan`, `check-claim`, …) |
 | `benchmark` | Ledger/gate performance check |
 
 Two flags matter in day-to-day use:
@@ -107,9 +125,9 @@ Two flags matter in day-to-day use:
 ## Rules the gate enforces that will surprise you
 
 - **One mutation per command.** A `git commit`/`git push`/`gt submit` chained
-  with `&&`, wrapped in a `for` loop, or piped is denied as
-  `compound-or-ambiguous-mutation`. This is deliberate: a loop with N targets
-  cannot be classified statically. Write one command per mutation.
+  with a mutating command, wrapped in a `for` loop, or piped is denied as
+  `compound-or-ambiguous-mutation`. Read-only Git chains such as
+  `git log && git status` are allowed.
 - **Commits and pushes are separate commands.** Never chain them.
 - **Receipts are fingerprint-bound.** Staging files changes the fingerprint, so
   issue the review receipt *after* `git add`, immediately before committing. If
@@ -120,16 +138,23 @@ Two flags matter in day-to-day use:
   ```bash
   python3 harness/cli.py attest --root <root> --obligation-id push.oid -- git rev-parse HEAD
   ```
-- **Editing `packages/ui-*` triggers axon obligations** — `ui-allowlist`,
-  `docs-registry`, `docs-page`, `rendered-evidence`. Satisfy them by actually
-  running the real check and attesting it, not by attesting something vacuous.
+- **Editing `packages/ui` triggers axon obligations** — `ui-allowlist`,
+  `docs-registry`, `docs-page`, and `ds-gates` (`pnpm --filter ./packages/ui
+  check`). A legacy `packages/ui-*` edit triggers none of these, because those
+  files are generated from `packages/ui`. `rendered-evidence` is added only when the
+  plan declares a visual delta (`after` / `before-after`, or a migration row
+  with `changed` / `new_visible`). Token swaps declare `none` /
+  `expected_unchanged` and do not need screenshots. Satisfy required checks
+  by running the real command, not a vacuous attestation.
 
 ## Verification blind spots the harness exists to cover
 
-- `pnpm check` and `pnpm lint` give **no signal** on `packages/ui-*` or
-  `apps/docs` — oxlint ignores both trees (CORE-754 debt). A green `pnpm check`
-  is not evidence there. Use `pnpm turbo run typecheck`, `pnpm test:unit:run`,
-  and `pnpm test:storybook:ci`.
+- `pnpm check` and `pnpm lint` give **no signal** on `packages/ui`,
+  `packages/ui-*`, or `apps/docs` — root oxlint ignores all three (`packages/ui`
+  has its own config; the others are CORE-754 debt). A green `pnpm check` is not
+  evidence there. Use `pnpm --filter ./packages/ui check` for `packages/ui`, and
+  `pnpm turbo run typecheck`, `pnpm test:unit:run`, and `pnpm test:storybook:ci`
+  for the legacy packages.
 - `pnpm turbo run typecheck` can report all-green **from cache** while a
   generated file is stale, because `@prepared/feature-staff-panel`'s typecheck
   is what runs `generate-ui-components.mjs --check`. When a change adds or

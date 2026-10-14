@@ -71,6 +71,28 @@ def handle_event(event_name: str, raw: bytes) -> Dict[str, Any]:
         return {}
     if event_name in ("sessionStart", "preCompact", "postToolUse"):
         _observe(event_name, root_id, cwd)
+        if event_name == "sessionStart":
+            try:
+                from lib.ledger import current_state
+                from lib.sessions import session_status
+
+                _, root_path = resolve_root(str(cwd))
+                current = snap(root_id, root_path)
+                status = session_status(
+                    root_id,
+                    root_path,
+                    current["worktree_id"],
+                    current.get("fingerprint") or "",
+                    session_id=str(payload.get("session_id") or os.environ.get("CURSOR_SESSION_ID") or "default"),
+                )
+                handoff = status.get("recovery")
+                if handoff:
+                    return {
+                        "followup_message": "Resuming harness session. Next: %s"
+                        % (handoff.get("next_command") or RECOVERY_COMMAND)
+                    }
+            except Exception:
+                pass
         return {}
     if event_name == "subagentStop":
         _observe(event_name, root_id, cwd)
@@ -115,6 +137,30 @@ def _stop(payload: Mapping[str, Any], root_id: str, cwd: Any) -> Dict[str, Any]:
         current.get("worktree_id") or cwd,
         root_path,
     )
+    from lib.ledger import current_state
+    from lib.path_selector import select_obligations
+    from lib.conformance import evaluate_against_base
+    from lib.plan_profile import active_profile
+
+    try:
+        state = current_state()
+        profile = active_profile(state, root_id, current.get("worktree_id") or cwd)
+    except Exception:
+        profile = {}
+    selection = select_obligations(
+        root_id,
+        changed,
+        profile,
+        registered.get("tier") or "T0",
+        family="git-commit",
+    )
+    conformance = evaluate_against_base(
+        root_id,
+        current.get("worktree_id") or cwd,
+        changed,
+        profile,
+        root_path=root_path,
+    )
     gate = evaluate_gate(
         root_id,
         current.get("worktree_id") or cwd,
@@ -123,11 +169,17 @@ def _stop(payload: Mapping[str, Any], root_id: str, cwd: Any) -> Dict[str, Any]:
         plan_hash=registered.get("plan_hash") or current.get("plan_hash") or "",
         tier=registered.get("tier") or "T0",
         changed_paths=changed,
+        root_path=root_path,
+        selection=selection,
+        conformance=conformance,
+        explain=True,
+        mutation_family="git-commit",
     )
     if gate["status"] != STATUS_PASS:
+        recovery = gate.get("recovery") or {}
+        next_cmd = recovery.get("next_command") or RECOVERY_COMMAND
         return {
-            "followup_message": "Proof is missing or stale. Run %s and continue."
-            % RECOVERY_COMMAND
+            "followup_message": "Proof is missing or stale. Run %s and continue." % next_cmd
         }
     return {}
 

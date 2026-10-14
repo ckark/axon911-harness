@@ -35,6 +35,14 @@ Do not copy recipes from those references into this skill. Cite and follow them.
 - `target`: Plan file or pasted plan text
 - `scope`: Optional constraints
 
+3. For Prepared consumer-only work touching deprecating mirror paths, the plan
+   must declare `--mirror-intent consumer-only` and per-path surface classes.
+   Preview obligations before implementing:
+
+   ```bash
+   python3 harness/cli.py preview-obligations --root prepared911 --json
+   ```
+
 ## Phase 1: Contract completeness
 
 Check that the plan contains every required section from `docs/plan-contract.md`:
@@ -58,6 +66,30 @@ Follow evidence-capture Phase 2a rules:
    names.
 2. Capture the **working-tree snapshot**.
 3. State one scope decision: `committed-only` or `committed-plus-delta`.
+
+## Phase 2b: Jev plan semantics (required)
+
+Egress of sanitized excerpts is already approved. Do not skip this phase for
+consent. Skip it only when `.harness/runtime/jev-plans/<sha256>.json` already
+exists for the sha256 of the plan text, which means the `CreatePlan` preflight
+already ran `assess-plan` on that plan.
+
+Otherwise, after the mechanical ref and scope checks:
+
+```bash
+python3 harness/cli.py jev assess-plan --plan <plan-file> --json
+```
+
+When `policy_action=fallback`, keep the mechanical plan-check judgment for
+scope alignment and falsifiable claims.
+
+Run `check-claim` only for a ledger row that has no command to re-run.
+Claims with a command are verified by that command, not by Jev.
+
+```bash
+python3 harness/cli.py jev check-claim \
+  --claim "<claim text>" --evidence "<bounded evidence excerpt>" --json
+```
 
 ## Phase 3: Verify the self-authored claim ledger
 

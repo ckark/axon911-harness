@@ -161,6 +161,11 @@ class MutationCwdTests(unittest.TestCase):
         self.assertEqual(mutation_cwd("git push", "/session/cwd"), "/session/cwd")
         self.assertEqual(mutation_cwd("gt submit --stack", "/session/cwd"), "/session/cwd")
 
+    def test_git_log_and_status_chain_allowed(self) -> None:
+        result = classify("git log -1 && git status --short")
+        self.assertEqual(result["permission"], "allow")
+        self.assertEqual(result["reason"], "readonly-git-chain")
+
     def test_a_shell_loop_of_pushes_is_still_denied(self) -> None:
         """`--cwd` support is not a way around the compound rule: a loop is
         still unanalyzable and must be written one mutation per command."""

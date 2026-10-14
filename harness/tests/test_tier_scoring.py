@@ -312,6 +312,22 @@ class TierScoringTests(unittest.TestCase):
             ["turbo/packages/ui-core/src/index.ts"],
         )
 
+    def test_design_system_surface_paths_are_registries_models_and_manifest(self) -> None:
+        surface = [
+            "packages/ui/package.json",
+            "packages/ui/src/components/box/models.ts",
+            "packages/ui/src/components/button/registry.ts",
+            "packages/ui/src/blocks/page-header/registry.ts",
+            "packages/ui/src/models/change-reasons.ts",
+            "packages/ui/src/registry.ts",
+        ]
+        bodies = [
+            "packages/ui/src/components/button/index.tsx",
+            "packages/ui/src/components/button/stories/default.stories.tsx",
+            "packages/ui/src/components/button/styles.module.css",
+        ]
+        self.assertEqual(surface_paths("axon911-frontend", surface + bodies), sorted(surface))
+
     def test_component_body_is_not_a_surface_path(self) -> None:
         self.assertEqual(
             surface_paths("axon911-frontend", ["packages/ui-core/src/components/button/index.tsx"]), []

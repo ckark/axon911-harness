@@ -6,13 +6,14 @@ inspection without adding personal agent files to any repository.
 
 ## Workspace roots
 
-- `prepared911`: application source, repository instructions, project skills,
-  documentation, tests, and verification commands.
 - `axon911-frontend`: related frontend source and package history. It is an
   eligible read/write implementation root.
+- `axon911-design`: design-system Storybook and component work (`prepared911/axon911-design`).
+  It is an eligible read/write implementation root.
 - `vault-core-ux`: Core UX decisions, standards, proposals, and history. It is
   an eligible read/write knowledge root.
 - `personal-harness`: private critics, review contracts, and orchestration.
+  The checkout directory and workspace file are `axon911-harness`.
 
 `axon911-agents` is cloned nearby and is not a live workspace root. See
 `docs/axon911-agents.md` for how to use it as a local overlay and what not to
@@ -27,7 +28,7 @@ shared-frontend-architecture shaped, axon911-frontend is authoritative; see
 ## Open
 
 ```shell
-open -a Cursor "/Users/ckark/Documents/CursorWorkspaces/prepared911-harness/prepared911-personal.code-workspace"
+open -a Cursor "/Users/ckark/Documents/CursorWorkspaces/axon911-harness/axon911-harness.code-workspace"
 ```
 
 On this machine, `~/.local/bin/cursor` is the standalone Cursor Agent CLI and
@@ -36,7 +37,7 @@ use:
 
 ```shell
 "/Applications/Cursor.app/Contents/Resources/app/bin/cursor" \
-  "/Users/ckark/Documents/CursorWorkspaces/prepared911-harness/prepared911-personal.code-workspace"
+  "/Users/ckark/Documents/CursorWorkspaces/axon911-harness/axon911-harness.code-workspace"
 ```
 
 After opening, start a fresh Cursor Agent conversation and run:
@@ -52,7 +53,7 @@ Verify this Prepared911 personal workspace. Do not modify anything.
 There is no harness process to start. Open the `.code-workspace` file and use
 Cursor Agent normally.
 
-- The workspace rule is always-on. It resolves the four roots, preserves
+- The workspace rule is always-on. It resolves the configured roots, preserves
   repository boundaries, and routes normal implementation work to the target
   repository's own instructions.
 - Plans follow `docs/plan-contract.md`. Implementation follows
@@ -120,8 +121,8 @@ target=origin/trunk...HEAD
 scope=caller toolbar and shared UI impact
 ```
 
-This runs the formal specialist and adjudication workflow without applying
-fixes.
+This runs the formal specialist review without applying fixes. The human PR
+reviewer arbitrates; there is no adjudicator.
 
 ## Formal review
 
@@ -144,8 +145,52 @@ target=origin/trunk...HEAD
 scope=<optional constraints>
 ```
 
-Formal review is read-only. Applying adjudicated fixes is a separate task and
-must satisfy `docs/implementation-contract.md`.
+Formal review is read-only. Applying the fixes a review finds is a separate
+task and must satisfy `docs/implementation-contract.md`.
+
+## TypeSafe Jev (bounded judgments)
+
+The harness calls TypeSafe Jev over `POST https://api.typesafe.ai/v1/systemone`
+using Python 3.9 stdlib HTTP. Configure `TYPESAFE_API_KEY` (or the macOS Keychain
+item `typesafe-ai-api-key`). The key is never printed or persisted in ledgers.
+
+```bash
+python3 harness/cli.py jev smoke --json
+python3 harness/cli.py jev route-task --request "add a remote module" --json
+```
+
+Subcommands: `route-task`, `list-skills`, `routing-status`, `rank-docs`,
+`hook-turn`, `assess-plan`, `check-claim`, `assess-change`, `rank-context`,
+`route-review`, `check-findings`, `assess-command`, and `eval`.
+
+**Task routing is delivered by user hooks**, not by the model remembering a
+command. `~/.cursor/hooks.json` points `beforeSubmitPrompt` and `postToolUse`
+at `harness/dispatch/jev_hooks.py`. In a workspace that includes a registered
+root, the hook runs `route-task` and `rank-docs` and injects the result after
+the next tool call. Slash commands and unregistered workspaces (research chats
+such as `chroma`) are skipped. `/harness-health-check` fails when those hook
+entries are missing, and warns when `routing-status` shows delivered turns
+below 90% of eligible turns. `route-task` and `rank-docs` remain the fallback
+when no injection arrives. Sending sanitized excerpts to TypeSafe is approved.
+`route-review` returns `skip` for a confident light change with no risk facts,
+`route` for the listed critics only, and `fallback` for the full in-session
+panel. See `docs/workspace-rule.md`.
+
+Deterministic proof (hashes, Git state, schemas, receipts, tests) stays
+authoritative. Jev runs in **shadow mode** for semantic tier risk, visibility, and
+unknown shell commands until labeled evals promote a question set; on API failure
+or low confidence the harness falls back to the existing LLM or human path.
+
+Observations append to `.harness/runtime/jev-observations.jsonl` only (not indexed
+gate state). Disable with `HARNESS_JEV_RECORD=0`.
+
+## Ponytail (minimum-code ladder)
+
+Vendored from [ponytail](https://github.com/DietrichGebert/ponytail) as adapted
+text in [docs/ponytail.md](docs/ponytail.md) and an optional complexity review
+skill (`ponytail-review`). Upstream Cursor hooks and global mode switching are
+**not** installed. Read the ladder before code authoring; repository `AGENTS.md`
+and harness contracts override it.
 
 ## Maintenance
 

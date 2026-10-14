@@ -11,8 +11,15 @@ End the session and start fresh when **either** threshold is reached:
 - **60 assistant turns** in the current session
 - **~80k tokens** of accumulated context (roughly 320 KB of transcript)
 
-These are nudges, not gates. When you hit one, write a handoff and open a new
-chat for the next phase.
+`python3 harness/cli.py budget-check <transcript>` and `capture-ready` enforce these
+limits mechanically before screenshot capture, visual acceptance, or ship phases.
+When a gate blocks, write a handoff and open a new chat for the next phase.
+
+Every execution-manifest phase also declares a positive `max_attempts`.
+Exhausting the bound blocks the phase. Repeating the same idempotency key
+returns the existing attempt instead of creating another capture. Changing the
+subject or manifest starts a superseding execution; it does not reset attempts
+inside the existing execution.
 
 ## One phase per session
 

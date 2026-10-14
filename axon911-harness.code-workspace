@@ -1,19 +1,24 @@
 {
   "folders": [
     {
-      "name": "prepared911",
-      "path": "/Users/ckark/Documents/GitHub/prepared911"
-    },
-    {
       "name": "vault-core-ux",
       "path": "/Users/ckark/Documents/GitHub/vault-core-ux"
     },
     {
-      "name": "personal-harness",
+      "name": "axon911-harness",
       "path": "."
     },
     {
+      "name": "axon911-frontend",
       "path": "../../GitHub/axon911-frontend"
+    },
+    {
+      "name": "axon911-design",
+      "path": "/Users/ckark/Documents/GitHub/axon911-design"
+    },
+    {
+      "name": "chroma",
+      "path": "/Users/ckark/Documents/GitHub/chroma"
     }
   ],
   "settings": {

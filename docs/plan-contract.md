@@ -1,8 +1,8 @@
 # Axon 911 Plan Contract
 
 Every implementation plan authored in this workspace must satisfy the structure
-below. Fields exist because adversarial-review Phases 2a/2b and the adjudicator
-already consume them. A plan that omits them forces the review harness to
+below. Fields exist because adversarial-review Phases 2a/2b already consume
+them. A plan that omits them forces the review harness to
 reconstruct evidence the author could have provided.
 
 ## Required sections
@@ -14,6 +14,8 @@ List every root the plan will modify:
 - `prepared911`
 - `axon911-frontend`
 - `vault-core-ux`
+- `chroma`
+- `axon911-design`
 - `personal-harness`
 
 Do not claim a root is in scope without identifying at least one path under it.
@@ -100,11 +102,74 @@ rather than asking for it again:
 A plan that cannot fill a field has not established the corresponding section.
 Do not paper over the gap in the PR body.
 
+### Design intent
+
+Required only when the plan changes behavior a user can see or operate. A plan
+that changes no user-visible behavior states "none" here. Cite principle ids
+from `docs/design-principles.md`.
+
+- **User and situation:** who is doing what, under which conditions.
+- **Desired outcome:** what should become easier, clearer, or more dependable.
+- **Applicable principles:** the specific `DP-*` or `DSP-*` ids that influence
+  the decision, each with the clause that applies.
+- **Observable acceptance:** the behavior that demonstrates success, written as
+  interaction scenarios an implementer can run and a reviewer can watch.
+- **Uncertainty:** what requires operator observation or further research. An
+  agent's own walkthrough does not answer this.
+
+"Aligns with our design principles" is not acceptance. Name the scenario:
+
+> When an operator switches incidents while an update is pending, the interface
+> preserves the pending state and makes its incident association clear.
+
 ### Deferred and out-of-scope
 
 List every known related concern the plan deliberately does not address.
 Without this section, review-contract downgrades for `out-of-scope` and
 `remediated-by-plan` cannot apply.
+
+## Execution manifest (strict plans)
+
+For user-visible migrations, compile the accepted plan into a canonical execution
+manifest JSON before implementation:
+
+| Field | Purpose |
+|---|---|
+| `plan_hash` | Immutable plan identity |
+| `tier` | `T0` / `T1` / `T2` blast radius |
+| `target_roots.<root>.base_oid` | Pinned baseline commit |
+| `target_roots.<root>.allowed_paths` | Declared scope globs |
+| `target_roots.<root>.required_paths` | Paths that must change |
+| `target_roots.<root>.evidence_states` | Per-glob evidence mode: `none` (visual parity; default for token swaps), `after`, `before-after` |
+| `budgets` | Session turn and context limits |
+
+Register with:
+
+```bash
+python3 harness/cli.py register-plan --root <root> \
+  --manifest execution-manifest.json \
+  --evidence-manifest .harness/runtime/evidence/<plan>/manifest.json
+```
+
+Changing scope, evidence mode, sequencing, or budgets requires a new manifest
+version; prior receipts bind to the previous `execution_manifest_hash`.
+
+### Definitive evidence manifests
+
+Schema v4 execution plans pair the execution manifest with a checksummed
+migration-evidence manifest. Each row declares one capture kind:
+`storybook`, `product-route`, or `not-applicable`. Each row also declares one
+evidence state: `changed`, `expected_unchanged`, `new_visible`, or
+`static_only`.
+
+- `changed` requires distinct Before and After capture identities.
+- `expected_unchanged` is visual parity (token swap, architecture-only). It
+  creates no screenshot obligation. Optional captures, if present, must match.
+- `new_visible` requires machine-checked absence on the baseline and an After.
+- `static_only` uses `not-applicable` and names its verification command.
+
+Every phase declares a positive `max_attempts`. Ref, scope, state, capture-mode,
+required-path, sequence, or budget changes require a superseding manifest.
 
 ## Completeness verdict
 

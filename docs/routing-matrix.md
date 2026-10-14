@@ -2,8 +2,9 @@
 
 ## Blast-radius tiers
 
-Tier sets **how many critics** and **how deep** they go. The change-signal table
-below still sets **which** critics apply.
+Tier sets **how deep** a review goes. It applies only after a trigger in
+`docs/workspace-rule.md` has turned the panel on; the default is panel off.
+The change-signal table below sets **which concerns** the review covers.
 
 Tier is **computed, not asserted**:
 
@@ -43,11 +44,11 @@ added or removed, the most common real API change in this design system.
 
 ### Tiers
 
-| Tier | Predicate | Panel |
+| Tier | Predicate | Depth, once the panel is on |
 |---|---|---|
-| `T0` | `surface_delta == none` and at most 3 call sites per changed symbol, no risk signal | One critic, diff-scoped |
-| `T1` | `surface_delta == none` with broader reuse, **or** `additive`, **or** more distinct changed symbols than the scoring cap | Two critics |
-| `T2` | `surface_delta == breaking`, **or** a risk signal, **or** cross-root, **or** unmeasurable | Signal-selected panel plus adjudication |
+| `T0` | `surface_delta == none` and at most 3 call sites per changed symbol, no risk signal | Diff-scoped: `design-system-critic` only |
+| `T1` | `surface_delta == none` with broader reuse, **or** `additive`, **or** more distinct changed symbols than the scoring cap | `design-system-critic` plus Cursor `bugbot` |
+| `T2` | `surface_delta == breaking`, **or** a risk signal, **or** cross-root, **or** unmeasurable | The concerns the change signal names, mapped to the real panel below |
 
 ### Both directions are defects
 
@@ -78,26 +79,38 @@ surfaces, not for a new Python helper.
 
 ## Change signals
 
-Use all five critics for substantial formal reviews (`T2` or broad change
-signals). For narrower reviews, the coordinator may omit clearly irrelevant
-critics but must say why. Tier still caps panel size: a `T0` review runs one
-critic even when several change signals match; a `T1` review runs two.
+The real panel is small. The harness has one bespoke critic,
+`design-system-critic`. Everything else is an existing tool:
 
-| Change signal | Required critics | Required evidence |
-|---|---|---|
-| `axon911-frontend/packages/ui-core/**`, tokens, themes, icons, public UI API | Design system, frontend architecture, performance, quality/accessibility | Docs design MDX, generated API registry, Storybook, consumers |
-| Other `axon911-frontend/packages/ui-*/**` | Design system, frontend architecture, quality/accessibility | Package exports, dependencies, docs coverage, stories, consumers |
-| Dispatch/Responder/Caller React change | Frontend architecture; add other critics by risk | Vite rules, Apollo/state evidence, affected consumers |
-| Beacon or Docs React change | Frontend architecture; add other critics by risk | Next.js/RSC rules, server/client boundaries |
-| RBAC, authentication, roles, permissions, PII | Security/privacy and frontend architecture | RBAC skills, caller paths, tests, server enforcement |
-| Lists, subscriptions, audio/video lifecycle, bundle or cache change | Performance/reliability and frontend architecture | Measurements or explicit measurement gap |
-| Forms, modals, navigation, interactive components | Quality/accessibility and design system | Accessibility MDX, stories, semantic tests |
-| Plan affecting public contracts or multiple apps | All critics | Plan references, package graph, migration/rollout strategy |
-| Axon host, remote, federation, or shared-domain change | Frontend architecture; add performance, security, and quality by risk | Axon `AGENTS.md`, triggered MFE/Vite/router skills, shell/remote contract and failure UI |
-| prepared911 consumption of published `@prepared911/ui-*` (the `turbo/packages/ui-*` mirror routes below, not here) | Design system, frontend architecture, quality/accessibility | Package provenance, exports, axon911-frontend `apps/docs` benchmark (prepared911 `turbo/apps/docs` only as secondary), prepared911 consumers |
-| Vault architecture or standard update | Relevant domain critic and adjudicator | Note frontmatter, linked architecture index, runtime sources supporting any implementation claim |
-| Contract spanning Prepared911 and Axon | All critics | Separate evidence per root, ownership, versions/exports, producer/consumers, rollout and rollback |
-| Harness runtime, Cursor hooks, review contracts, or always-on workspace rules | Frontend architecture, security/privacy, quality/accessibility; add performance when hooks or ledgers are on a hot path | Runtime contract, event schemas, receipt fingerprints, and measured cross-root scope |
+- Cursor `bugbot` covers general code review, including architecture and
+  performance concerns.
+- Cursor `security-review` covers security and privacy, and only when injection,
+  auth, or trust boundaries were an explicit requirement.
+- Storybook MCP `run-story-tests` covers interaction and accessibility.
+- `ponytail-review` is optional and advisory, and only when the diff adds files,
+  dependencies, or abstractions.
+
+There is no adjudicator. The human PR reviewer arbitrates. For a narrower
+review, omit a concern that clearly does not apply and say why.
+
+| Change signal | Concerns | Real panel | Required evidence |
+|---|---|---|---|
+| `axon911-frontend/packages/ui/**` (the design system), tokens, themes, icons, public UI API | Design system, architecture, performance, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | `pnpm --filter ./packages/ui check`, generated API registry, docs design MDX, the package's own Storybook, consumers |
+| Legacy `axon911-frontend/packages/ui-core/**` until CORE-1276 deletes it | Design system, architecture, performance, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | Docs design MDX, generated API registry, Storybook, consumers |
+| Other `axon911-frontend/packages/ui-*/**` | Design system, architecture, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | Package exports, dependencies, docs coverage, stories, consumers |
+| Dispatch/Responder/Caller React change | Architecture; add others by risk | `bugbot`; `design-system-critic` when shared UI changed | Vite rules, Apollo/state evidence, affected consumers |
+| Beacon or Docs React change | Architecture; add others by risk | `bugbot`; `design-system-critic` when shared UI changed | Next.js/RSC rules, server/client boundaries |
+| RBAC, authentication, roles, permissions, PII | Security/privacy and architecture | `security-review`, `bugbot` | RBAC skills, caller paths, tests, server enforcement |
+| Lists, subscriptions, audio/video lifecycle, bundle or cache change | Performance and architecture | `bugbot`, with a measurement or an explicit measurement gap | Measurements or explicit measurement gap |
+| Forms, modals, navigation, interactive components | Accessibility and design system | `design-system-critic`, `run-story-tests` | Accessibility MDX, stories, semantic tests |
+| Plan affecting public contracts or multiple apps | Every concern the signals above name | The union of the panels those signals name | Plan references, package graph, migration/rollout strategy |
+| Axon host, remote, federation, or shared-domain change | Architecture; add performance, security, and accessibility by risk | `bugbot`; `security-review` and `run-story-tests` when the risk applies | Axon `AGENTS.md`, triggered MFE/Vite/router skills, shell/remote contract and failure UI |
+| prepared911 consumption of published `@prepared911/ui-*` (the `turbo/packages/ui-*` mirror routes below, not here) | Design system, architecture, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | Package provenance, exports, axon911-frontend `apps/docs` benchmark (prepared911 `turbo/apps/docs` only as secondary), prepared911 consumers |
+| Vault architecture or standard update | The domain the note covers | `design-system-critic` when the note touches shared UI; otherwise `bugbot` | Note frontmatter, linked architecture index, runtime sources supporting any implementation claim |
+| `chroma` generator, token emitters, or Figma sync (`lib/color/**`, `lib/tokens/**`, `tokens/**`, `figma-plugin/**`, `scripts/figma-push.ts`) | Design system and architecture | `design-system-critic`, `bugbot` | `pnpm check:generator`, `pnpm tokens:figma` validation, and a live Figma resolve check when the sync changes |
+| `axon911-design` components, tokens, or Storybook (`src/**`, `.storybook/**`) | Design system, architecture, accessibility | `design-system-critic`, `bugbot`, `run-story-tests` | `pnpm check`, `pnpm typecheck`, `pnpm test:unit --run`, `pnpm test:storybook --run` |
+| Contract spanning Prepared911 and Axon | Every concern the signals above name | The union of the panels those signals name | Separate evidence per root, ownership, versions/exports, producer/consumers, rollout and rollback |
+| Harness runtime, Cursor hooks, review contracts, or always-on workspace rules | Architecture, security/privacy, accessibility; add performance when hooks or ledgers are on a hot path | `bugbot`, `security-review`; `run-story-tests` when a user-visible surface changed | Runtime contract, event schemas, receipt fingerprints, and measured cross-root scope |
 
 Next.js-only patterns from `axon911-frontend/apps/docs` must never be imposed on
 Vite apps. axon911-frontend runs three Vite 8 + TanStack Router + Module
@@ -107,7 +120,7 @@ applying it.
 
 Two further rows for the flat axon layout:
 
-| Change signal | Required critics | Required evidence |
-|---|---|---|
-| `packages/mfe-core/**`, `packages/tooling-config/**` | Frontend architecture, performance | Contract and build-factory surface for 3 shells and 8 remotes; `pnpm mf:types:check` |
-| `prepared911/turbo/packages/ui-*/**` | Design system, frontend architecture | Deprecating mirror: state whether the change belongs in axon911-frontend instead |
+| Change signal | Concerns | Real panel | Required evidence |
+|---|---|---|---|
+| `packages/mfe-core/**`, `packages/tooling-config/**` | Architecture, performance | `bugbot` | Contract and build-factory surface for 3 shells and 8 remotes; `pnpm mf:types:check` |
+| `prepared911/turbo/packages/ui-*/**` | Design system, architecture | `design-system-critic`, `bugbot` | Deprecating mirror: state whether the change belongs in axon911-frontend instead |

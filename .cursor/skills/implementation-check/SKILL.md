@@ -18,35 +18,81 @@ Local receipts are cooperative assurance, not tamper-proof enforcement.
 2. Register the plan when one exists:
 
    ```bash
-   python3 harness/cli.py register-plan --root <root> --plan-hash <sha256> --tier <tier>
+   python3 harness/cli.py register-plan --root <root> --plan-hash <sha256> --tier <tier> \
+     --manifest execution-manifest.json \
+     --evidence-manifest .harness/runtime/evidence/<plan>/manifest.json
    ```
 
-3. Run root-owned checks through the attesting wrapper:
+   Legacy flags (`--scope`, `--base-oid`, `--path-surface`) remain for non-strict work.
+
+3. Preview obligations before editing (read-only):
+
+   ```bash
+   python3 harness/cli.py preview-obligations --root <root> --path '<relpath>' --json
+   ```
+
+4. Run root-owned checks through the attesting wrapper:
 
    ```bash
    python3 harness/cli.py attest --root <root> --obligation-id <id> --plan-hash <sha256> -- <argv>
    ```
 
-4. Capture rendered evidence via `/capture-evidence` when user-visible surfaces changed.
+4. Capture rendered evidence via `/capture-evidence` only when the plan
+   declares a visual delta (`after`, `before-after`, or migration `changed` /
+   `new_visible`). Token-swap and `expected_unchanged` work skip this step:
+
+   ```bash
+   python3 harness/cli.py record-evidence --root <root> --obligation-id <id> \
+     --kind before|after --artifact <root-relative-path>
+   ```
+
 5. Mechanical verification:
 
    ```bash
-   python3 harness/cli.py verify --root <root> --json
+   python3 harness/cli.py verify --root <root> --json --explain
    ```
 
-6. **Review receipt (optional by default):** only when `/adversarial-review` ran
+6. For declared visual-delta migration work, run capture preflight and issue visual acceptance from a fresh reviewer session:
+
+   ```bash
+   python3 harness/cli.py capture-ready --root <root> --kind after
+   python3 harness/cli.py issue-visual-acceptance-receipt --root <root> \
+     --reviewer-session-id <fresh-session> --authoring-session-id <author-session> \
+     --manifest .harness/runtime/evidence/<plan>/manifest.json \
+     --report .harness/runtime/reports/visual-acceptance-<fingerprint>.json \
+     --subject-tree-oid <staged-tree>
+   ```
+
+   Schema v4 preflight rejects legacy receipts, mismatched pinned refs,
+   opposite-role process or cache reuse, missing route/story identity,
+   missing changed-path execution proof, and `not-applicable` rows with image
+   slots. The visual report is separate from capture health and must bind every
+   artifact hash.
+
+7. Push readiness (read-only; no checks run):
+
+   ```bash
+   python3 harness/cli.py ship-plan --root <root> --json
+   ```
+
+8. **Review receipt (optional by default):** only when `/adversarial-review` ran
    or `HARNESS_REVIEW_MODE` is raised. Validate the report file at
    `.harness/runtime/reports/design-system-critic-<fingerprint>.md`, not prose
    in context. Then:
 
    ```bash
    python3 harness/cli.py issue-review-receipt \
-     --root <root> --tier <tier> --plan-hash <sha256> --status PASS \
-     --critic design-system-critic
+     --root <root> --tier <tier> --plan-hash <sha256> \
+     --critic design-system-critic \
+     --report .harness/runtime/reports/design-system-critic-<fingerprint>.md
    ```
 
-7. For push: attest `push.oid`. For `gt submit`: attest `stack-oid-set`.
+9. For push: attest `push.oid`. For `gt submit`: attest `stack-oid-set`. If the
+   repository pre-push hook fails on private packages, set `NODE_AUTH_TOKEN` for
+   GitHub npm (see prepared911 `turbo/.npmrc`); `ship-plan` reports this when unset.
 
 ## Recovery
 
-If a gate denies, rerun this skill against the current fingerprint.
+If a gate denies, rerun this skill against the current fingerprint. Use
+`verify --explain` or `ship-plan --json` for structured recovery categories
+(missing, stale, wrong-plan, conformance, classification, evidence).

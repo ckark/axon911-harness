@@ -74,6 +74,7 @@ def snapshot(
     root_id: str,
     root_path: str,
     plan_hash: str = "",
+    plan_context_hash: str = "",
     git: Optional[GitRunner] = None,
     extra_untracked: Optional[Sequence[str]] = None,
 ) -> Dict[str, str]:
@@ -124,6 +125,7 @@ def snapshot(
         ("deletions", hashlib.sha256("\n".join(sorted(deletions)).encode("utf-8")).hexdigest()),
         ("renames", hashlib.sha256("\n".join(sorted(renames)).encode("utf-8")).hexdigest()),
         ("plan_hash", plan_hash),
+        ("plan_context_hash", plan_context_hash),
         ("obligation_schema_version", OBLIGATION_SCHEMA_VERSION),
         ("command_spec_version", COMMAND_SPEC_VERSION),
         ("verifier_version", VERIFIER_VERSION),
@@ -135,6 +137,7 @@ def snapshot(
         "root": root_id,
         "worktree_id": os.path.realpath(os.path.join(real, git_dir)),
         "plan_hash": plan_hash,
+        "plan_context_hash": plan_context_hash,
         "schema_version": OBLIGATION_SCHEMA_VERSION,
         "command_spec_version": COMMAND_SPEC_VERSION,
     }

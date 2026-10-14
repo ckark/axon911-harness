@@ -1,6 +1,6 @@
 # Axon 911 Workspace Rule
 
-Always-on guidance for work across the four roots. Cursor loads this through
+Always-on guidance for work across the configured roots. Cursor loads this through
 `.cursor/rules/prepared911-workspace.mdc` at session start.
 
 ## Roots
@@ -10,6 +10,10 @@ Always-on guidance for work across the four roots. Cursor loads this through
 - `prepared911` — application repository. Consumes the published
   `@prepared911/ui-*` artifacts.
 - `vault-core-ux` — Core UX decisions, standards, and history.
+- `chroma` — colour-ramp and token generator (Next.js app). Emits the CSS
+  tokens, the manifest, and the Figma variables payload.
+- `axon911-design` — hand-rolled `@axon911/design` package. Storybook is the
+  repo root. It does not own `@prepared/ui-*`.
 - `personal-harness` — private critics, contracts, and orchestration.
 
 ## Source priority
@@ -25,10 +29,77 @@ prepared911 remains authoritative for its own application code.
 Each repository's own instructions take precedence for work in that repository.
 The harness coordinates; it does not redefine project coding standards.
 
+## Task and skill routing (Jev) — required
+
+Routing is **not optional**. Before loading any skill body or specialist context
+for an action request, run:
+
+```bash
+python3 harness/cli.py jev route-task --request "<sanitized user request>" --json
+```
+
+The roster covers every skill in every configured root, keyed `<root>#<skill>`. Inspect
+it with `jev list-skills`.
+
+Then follow the result:
+
+- `policy_action=route` — load the named skill and no others. Loading a
+  different skill instead requires stating why in your response.
+- `policy_action=fallback` — routing abstained (`no_match`, low confidence, or
+  API failure). Pick the skill yourself as before. Abstention is a valid
+  outcome, not a failure.
+
+**Exempt** (skip routing): pure questions with no file edits, requests that name
+a skill or slash command explicitly, and continuations of work already routed in
+this session.
+
+Sending sanitized, redacted excerpts to `api.typesafe.ai` is approved. Do not
+skip a Jev phase because it leaves the machine. The redaction in
+`harness/lib/jev_redaction.py` is the bound: no `.env`, credentials, ledger,
+transcripts, or raw secrets.
+
+User-level Cursor hooks deliver routing. On a prompt in a workspace that
+includes a registered root, `beforeSubmitPrompt` runs `route-task` and
+`rank-docs`, and the next `postToolUse` injects the skill to read and the
+contracts to leave unread. Run the commands below only when that injection
+does not arrive. A prompt that starts with `/` is exempt, as are chats whose
+workspace includes none of the configured roots.
+
+`/harness-health-check` fails when those user hooks are missing, and warns
+when delivered turns fall below 90% of eligible turns:
+
+```bash
+python3 harness/cli.py jev routing-status --json
+```
+
+Jev never overrides deterministic hooks, receipts, hashes, or shell grammar for
+known Git/Graphite commands. Semantic tier, visibility, and unknown-command
+decisions stay in shadow mode until labeled evals pass; see `README.md`.
+
+Leave observation recording on. `HARNESS_JEV_RECORD=0` suppresses the append and
+makes the session invisible to the routing check; use it only for tests.
+
 ## Before editing
 
+Always read the target root's `AGENTS.md` (vault: `.cursorrules`). For code
+authoring, also read [docs/ponytail.md](ponytail.md). Repository instructions
+and harness contracts override the ponytail ladder.
+
+On the same non-exempt requests as task routing, rank the optional contract
+menu before opening those files. Send the sanitized request only:
+
+```bash
+python3 harness/cli.py jev rank-docs --request "<sanitized user request>" --json
+```
+
+Read the ids in `keep`, plus the always-read set above. Do not open ids in
+`drop`. `policy_action=fallback` means the rank failed open: read every id in
+`keep`, which is the full menu. The exemptions match task routing: pure
+questions with no file edits, an explicitly named skill or slash command, and
+continuations of work already ranked in this session.
+
 Identify the target root, then read that root's own `AGENTS.md`. axon911-frontend
-is flat (`packages/ui-*`, `apps/docs`, `apps/storybook`); prepared911 nests under
+is flat (`packages/ui`, `apps/docs`, `apps/storybook`); prepared911 nests under
 `turbo/`. Never transfer one root's paths, commands, or conventions to another.
 
 In axon911-frontend, run `pnpm dlx @tanstack/intent@latest list` before a
@@ -36,8 +107,10 @@ substantial change, per the generated block at the top of its `AGENTS.md`.
 
 ## Verification blind spot
 
-`pnpm check` and `pnpm lint` give **no signal** on `packages/ui-*` or
-`apps/docs`. In those paths evidence means `pnpm turbo run typecheck`,
+`pnpm check` and `pnpm lint` give **no signal** on `packages/ui`,
+`packages/ui-*`, or `apps/docs`. For `packages/ui`, evidence means
+`pnpm --filter ./packages/ui check` and its own Storybook tests. For the legacy
+packages and `apps/docs`, it means `pnpm turbo run typecheck`,
 `pnpm test:unit:run`, and `pnpm test:storybook:ci`.
 
 ## Default posture: mechanical on, panel off

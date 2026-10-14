@@ -37,6 +37,47 @@ class ObligationAdapterTests(unittest.TestCase):
         self.assertTrue(all(item.startswith("axon911-frontend.") for item in ids))
         self.assertFalse(triggered_obligations("prepared911", paths))
 
+    def test_axon_design_system_path_triggers_generated_artifacts_and_gates(self) -> None:
+        paths = ["packages/ui/src/components/button/index.tsx"]
+        ids = [item["id"] for item in triggered_obligations("axon911-frontend", paths)]
+        self.assertEqual(
+            ids,
+            [
+                "axon911-frontend.ui-allowlist",
+                "axon911-frontend.docs-registry",
+                "axon911-frontend.docs-page",
+                "axon911-frontend.ds-gates",
+                "axon911-frontend.rendered-evidence",
+            ],
+        )
+
+    def test_axon_legacy_ui_path_triggers_only_rendered_evidence(self) -> None:
+        # The allowlist and docs registry are generated from packages/ui, so a
+        # legacy ui-* edit cannot make them stale.
+        paths = ["packages/ui-core/src/components/button/index.tsx"]
+        ids = [item["id"] for item in triggered_obligations("axon911-frontend", paths)]
+        self.assertEqual(ids, ["axon911-frontend.rendered-evidence"])
+
+    def test_axon_package_with_ui_prefix_is_not_the_design_system(self) -> None:
+        paths = ["packages/uikit/src/button.tsx", "packages/util-ui/src/button.tsx"]
+        self.assertFalse(triggered_obligations("axon911-frontend", paths))
+
+    def test_axon_design_system_gate_filters_by_path(self) -> None:
+        gates = [
+            item
+            for item in triggered_obligations("axon911-frontend", ["packages/ui/src/registry.ts"])
+            if item["id"] == "axon911-frontend.ds-gates"
+        ]
+        self.assertEqual(gates[0]["check"], "pnpm --filter ./packages/ui check")
+
+    def test_axon_design_system_path_is_inferred_visible(self) -> None:
+        from lib.path_selector import select_obligations
+        from lib.plan_profile import SURFACE_EXISTING_VISIBLE
+
+        path = "packages/ui/src/components/button/index.tsx"
+        selection = select_obligations("axon911-frontend", [path], {"profiled": False}, "T0")
+        self.assertEqual(selection["path_surfaces"][path], SURFACE_EXISTING_VISIBLE)
+
     def test_docs_only_edit_does_not_satisfy_allowlist(self) -> None:
         paths = ["turbo/apps/docs/mdx/design/components/button.mdx"]
         ids = [item["id"] for item in triggered_obligations("prepared911", paths)]
@@ -51,13 +92,32 @@ class ObligationAdapterTests(unittest.TestCase):
         paths = ["apps/dispatch/src/guides.tsx"]
         self.assertFalse(triggered_obligations("prepared911", paths))
 
-    def test_rendered_evidence_before_after_for_existing_surface(self) -> None:
+    def test_visibility_flags_do_not_invent_screenshot_obligations(self) -> None:
         ids = required_ids("prepared911", ["turbo/packages/ui-core/src/button.tsx"], True, True)
-        self.assertIn("prepared911.rendered-evidence.before-after", ids)
+        self.assertNotIn("prepared911.rendered-evidence", ids)
+        self.assertNotIn("prepared911.rendered-evidence.before-after", ids)
 
     def test_non_visible_change_skips_rendered_evidence(self) -> None:
         ids = required_ids("prepared911", ["turbo/packages/ui-core/src/button.tsx"], False, False)
         self.assertNotIn("prepared911.rendered-evidence", ids)
+
+    def test_consumer_only_via_selector_suppresses_docs(self) -> None:
+        from lib.path_selector import select_obligations
+
+        profile = {
+            "profiled": True,
+            "scope": ["turbo/apps/dispatch/**"],
+            "mirror_intent": "consumer-only",
+            "path_surfaces": {},
+        }
+        selection = select_obligations(
+            "prepared911",
+            ["turbo/packages/ui-core/src/button.tsx"],
+            profile,
+            "T0",
+        )
+        self.assertNotIn("prepared911.docs-registry", selection["required_obligation_ids"])
+        self.assertNotIn("prepared911.docs-page", selection["required_obligation_ids"])
 
     def test_cross_root_receipt_rejected(self) -> None:
         self.assertFalse(cross_root_receipt_valid("prepared911", "axon911-frontend"))

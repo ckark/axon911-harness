@@ -43,7 +43,11 @@ Full report text must not enter the orchestrator context.
 
 For every finding provide:
 
-- **ID:** Domain-prefixed identifier (`DS-###`, `FA-###`, `DOCS-DRIFT-###`, …)
+- **ID:** Domain-prefixed identifier (`DS-###`, `FA-###`, `DOCS-DRIFT-###`,
+  `INTENT-###`, …). An `INTENT-###` finding names the principle id, the
+  observed behavior, the user consequence, and the smallest correction. Use
+  full severity when citing DP-* or DSP-* ids from
+  [design-principles.md](design-principles.md) (authoritative for review).
 - **Severity:** `critical`, `high`, `medium`, `low`, or `informational`
 - **Location:** Exact `<ref>:<path>:<line>`, plan section, public API, or command output
 - **Evidence:** What was directly observed
@@ -70,13 +74,13 @@ scope reviewed (no four-ref manifest).
   plan's fix is wrong.
 - The target repository's instructions, public APIs, tests, and actual behavior
   take precedence over generic framework guidance.
-- The docs app is a required benchmark when `packages/ui-*` or `apps/docs`
-  changed; stale docs must be reported as `DOCS-DRIFT`. Prefer the
+- The docs app is a required benchmark when `packages/ui`, `packages/ui-*`, or
+  `apps/docs` changed; stale docs must be reported as `DOCS-DRIFT`. Prefer the
   `prepared-docs` MCP over hand-read MDX.
 
 ## Docs benchmark
 
-Required only when changed paths touch `packages/ui-*`, `apps/docs`, or the
+Required only when changed paths touch `packages/ui`, `packages/ui-*`, `apps/docs`, or the
 prepared911 mirror. Source from the `prepared-docs` MCP when available.
 
 ```markdown
@@ -103,6 +107,19 @@ prepared911 mirror. Source from the `prepared-docs` MCP when available.
 ```
 
 Missing this section when ui-* or docs paths changed invalidates the report.
+
+## Definitive visual acceptance
+
+The visual verifier must be distinct from the authoring session. It receives
+the expected outcomes, changed-path summary, full-resolution images, contact
+sheet, and v4 health receipts. Its report records PASS or FAIL for every
+`change_id` and binds the product trees, staged harness tree, evidence-manifest
+hash, artifact hashes, and reviewer identity.
+
+Visual acceptance does not replace deterministic provenance checks, Bugbot, or
+the T2 architecture and security review. A `not-applicable` row is reviewed
+through its machine-checked absence or static verification result and has no
+image verdict.
 
 ## Source priority
 

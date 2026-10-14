@@ -6,7 +6,7 @@ import json
 import os
 import stat
 import subprocess
-from typing import Dict, Mapping, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from .constants import ROOT_IDS
 
@@ -14,6 +14,8 @@ DEFAULT_ROOT_PATHS = {
     "axon911-frontend": "/Users/ckark/Documents/GitHub/axon911-frontend",
     "prepared911": "/Users/ckark/Documents/GitHub/prepared911",
     "vault-core-ux": "/Users/ckark/Documents/GitHub/vault-core-ux",
+    "chroma": "/Users/ckark/Documents/GitHub/chroma",
+    "axon911-design": "/Users/ckark/Documents/GitHub/axon911-design",
 }
 
 # Override per-root paths without a plugin host. See docs/cursor-onboarding.md.
@@ -21,6 +23,8 @@ ROOT_ENV_KEYS = {
     "axon911-frontend": "HARNESS_AXON911_ROOT",
     "prepared911": "HARNESS_PREPARED911_ROOT",
     "vault-core-ux": "HARNESS_VAULT_ROOT",
+    "chroma": "HARNESS_CHROMA_ROOT",
+    "axon911-design": "HARNESS_AXON911_DESIGN_ROOT",
 }
 
 
@@ -130,6 +134,28 @@ def _run_git(args: Tuple[str, ...], cwd: str) -> str:
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
+def linked_worktree_paths(path: str) -> List[str]:
+    """Absolute worktree paths for the repo containing `path`, primary first.
+
+    Empty when `path` is not a git checkout. Used to find skills that exist on
+    a linked worktree while the configured checkout has not checked them out.
+    """
+    if not os.path.isdir(path):
+        return []
+    raw = _run_git(("worktree", "list", "--porcelain"), path)
+    found: List[str] = []
+    for line in raw.splitlines():
+        if not line.startswith("worktree "):
+            continue
+        candidate = line[len("worktree ") :].strip()
+        if not candidate or not os.path.isdir(candidate):
+            continue
+        real = os.path.realpath(candidate)
+        if real not in found:
+            found.append(real)
+    return found
+
+
 def worktree_identity(path: str) -> Tuple[Optional[str], Optional[str]]:
     """(toplevel, common-git-dir) for the repository containing `path`.
 
@@ -174,13 +200,11 @@ def identify_root(path: str, roots: Optional[Mapping[str, str]] = None) -> Tuple
     candidate_top, candidate_common = worktree_identity(probe) if probe else (None, None)
     if candidate_common:
         for root_id, root_path in mapping.items():
-            if root_id == "personal-harness":
-                continue
             _, configured_common = worktree_identity(root_path)
             if configured_common and configured_common == candidate_common:
                 return root_id, candidate_top or real
 
-    raise PathError("path is outside the four configured roots")
+    raise PathError("path is outside the configured roots")
 
 
 def canonical_path(path: str) -> str:

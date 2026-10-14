@@ -3,7 +3,7 @@
 `prepared911/axon911-agents` is the Eve production monorepo for independently
 deployable agents. It is cloned at
 `/Users/ckark/Documents/GitHub/axon911-agents` and is **not** a live workspace
-root yet. Do not add it to `prepared911-personal.code-workspace`, the
+root yet. Do not add it to `axon911-harness.code-workspace`, the
 repository router, or the always-on workspace rule until that wiring is
 explicitly requested.
 

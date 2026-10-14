@@ -1,0 +1,12 @@
+{
+  "state": "Harness connectivity smoke check",
+  "questions": {
+    "harness_smoke": {
+      "type": "noul",
+      "instructions": "Does this state describe a harness connectivity smoke check?"
+    }
+  },
+  "expected": {
+    "harness_smoke": { "type": "noul", "min": 0.5, "max": 1.0 }
+  }
+}

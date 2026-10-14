@@ -6,11 +6,20 @@ first, then use that root's own instructions and verification commands.
 
 ## Resolve the root first
 
-Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, or
-`personal-harness` owns the change. axon911-frontend owns every
-`@prepared/ui-*` package post CORE-754 (`AGENTS.md:121`, `docs/VENDORING.md`) and
-is the architectural authority for the Axon 911 ecosystem; a ui-* bug fix belongs
-there, not in prepared911's `turbo/packages/ui-*` mirror. axon911-frontend is
+Identify which of `axon911-frontend`, `prepared911`, `vault-core-ux`, `chroma`,
+`axon911-design`, or `personal-harness` owns the change.
+
+When implementing (not reviewing only), apply the minimum-code ladder in
+[docs/ponytail.md](ponytail.md) after this contract and the target root's
+`AGENTS.md`. Harness and repository rules override ponytail. Which other
+harness contracts to open is decided by `jev rank-docs` in
+[docs/workspace-rule.md](workspace-rule.md); do not read the dropped ids.
+
+axon911-frontend owns the design system, `packages/ui` (`@prepared911/ui`, being
+renamed `@axon911/ui` in CORE-1276), and every legacy `@prepared911/ui-*` package
+post CORE-754 (`docs/VENDORING.md`). It is the architectural authority for the
+Axon 911 ecosystem; a ui-* bug fix belongs there, not in prepared911's
+`turbo/packages/ui-*` mirror. CORE-1276 deletes the legacy `packages/ui-*`. axon911-frontend is
 flat; prepared911 nests under `turbo/`. Read that root's `AGENTS.md` (vault
 `.cursorrules`, or harness contracts) before editing. Do not transfer
 Prepared911 commands or conventions to another root.
@@ -41,10 +50,11 @@ Follow the repository's pre-commit and branch policy in `AGENTS.md`.
 
 ### axon911-frontend
 
-**`pnpm check` reports nothing on `packages/ui-*` or `apps/docs`.** oxlint
-ignores both trees (`packages/tooling-config/src/oxlint/config.ts:37-58`,
-CORE-754 debt, `docs/LINT-POLICY.md:53-55`). A green `pnpm check` is not evidence
-for those paths, and neither is a green CI `lint` job.
+**`pnpm check` reports nothing on `packages/ui`, `packages/ui-*`, or `apps/docs`.**
+Root oxlint ignores all three: `packages/ui` has its own config, and the others are
+in `DESIGN_SYSTEM_DEBT_IGNORES` (`packages/tooling-config/src/oxlint/design-system-consumer.mjs`,
+CORE-754 debt). A green `pnpm check` is not evidence for those paths, and neither
+is a green CI `lint` job. For `packages/ui`, run `pnpm --filter ./packages/ui check`.
 
 ```bash
 pnpm check                 # ultracite check + feature-flags:check + intent:check (root-level)
@@ -58,8 +68,9 @@ out per package through turbo.
 
 | Path | What actually covers it |
 |---|---|
-| `packages/ui-*` | typecheck, unit tests, Storybook build and test, the `apps/auth` webpack build (ui-core only) |
-| `apps/**`, `remotes/**` | Playwright from `apps/automation` after `pnpm build:mf`; `apps/storybook` globs `packages/*/src` only, so these have no Storybook coverage |
+| `packages/ui` | `pnpm --filter ./packages/ui check` (ultracite plus registry, catalog, skills, BUGBOT, and migration-guide drift), typecheck, `pnpm --filter ./packages/ui test:unit --run`, its own Storybook (`test:storybook`, port 5206) |
+| Legacy `packages/ui-*` | typecheck, unit tests, Storybook build and test in apps/storybook, the `apps/auth` webpack build (ui-core only) |
+| `apps/**`, `remotes/**` | Playwright from `apps/automation` after `pnpm build:mf`; `apps/storybook` globs `packages/ui-*/src` and the staff panel only, so these have no Storybook coverage |
 | `remotes/**`, `mfe-core` | `pnpm mf:types:check` |
 | `packages/feature-flags` | `pnpm feature-flags:check` |
 
@@ -88,6 +99,34 @@ the harness root.
 - Outgoing `[[wikilinks]]` resolve
 - Note lives under the correct top-level folder
 - No proprietary HTML or generated cache files
+
+### chroma
+
+```bash
+pnpm exec tsc --noEmit
+pnpm check:generator      # WCAG/APCA/gradient gates and the colour-collection shape
+pnpm tokens:figma         # re-emits tokens and validates the Figma payload
+node --check figma-plugin/code.js
+```
+
+`pnpm tokens:figma` rewrites `generatedAt` in `tokens/figma-variables.json` and
+`tokens/figma-snapshot.json`. Revert those two files when the timestamp is the
+only diff. `pnpm figma:push` needs `FIGMA_TOKEN` and `FIGMA_FILE_KEY`; without
+them, apply through the plugin API instead.
+
+### axon911-design
+
+One package, `@axon911/design`. Storybook is the repository root (port 5204).
+Do not import Radix or `@prepared911/ui-*`. Do not hand-edit the token files
+named in `src/tokens/SOURCE.json`.
+
+```bash
+pnpm check
+pnpm typecheck
+pnpm test:unit --run
+pnpm test:storybook --run
+pnpm localization:check
+```
 
 ### personal-harness
 
@@ -127,18 +166,77 @@ Before claiming a fix complete:
 
 Do not leave sibling call sites untouched after autocorrecting one.
 
-## Rendered evidence for anything a user sees
+## Lean execution sequence (user-visible migrations)
 
-Anything an operator or user sees rendered — UI components, docs pages, modal
-flows, Storybook variants — ships with rendered evidence of the after state
-(before-and-after when changing something that already exists):
+1. Freeze and register the accepted plan (`register-plan --manifest`).
+2. Declare per-path evidence mode. Default is visual parity (`none` /
+   `expected_unchanged`): token swaps and architecture-under-the-hood work
+   that should look the same do not capture screenshots.
+3. Capture baselines only for rows that declare a visual delta (`after`,
+   `before-after`, or migration `changed` / `new_visible`).
+4. Implement the shared contract plus one representative real consumer.
+5. Run focused type, semantic DOM, and (when a delta is declared) rendered
+   product checks for that sentinel. When the plan has a design-intent section,
+   also run its observable-acceptance scenarios against that sentinel, covering
+   keyboard interaction, interruption, loading, failure, and recovery where the
+   scenario involves them.
+6. Stop and correct the contract if the sentinel fails, including an unmet
+   outcome; do not begin the sweep.
+7. Migrate remaining consumers and run affected checks.
+8. When a visual delta is declared: stage final content, run `capture-ready`
+   (alias `execution-preflight`), batch after captures once, and run one
+   fresh-context visual acceptance pass. Then commit, push, and publish hosted
+   evidence.
 
-- Storybook story
-- Docs page
-- Playwright screenshot or trace
+`capture-ready` blocks capture when the strict profile is missing, required paths
+are untouched, nonvisual verification receipts are missing, the after subject
+tree is not final, manifest coverage does not match the diff, or the session is
+over budget.
 
-If the surface cannot be reached live, render against realistic data and say
-so. A green typecheck alone is not rendered evidence.
+Definitive captures use schema v4 receipts. Storybook receipts bind an exact
+committed product story; product-route receipts bind an exact product
+entrypoint, route, scenario adapter, and migration-state assertion.
+`not-applicable` and parity rows produce no image or attachment slot. Both
+executable capture kinds rederive the source commit and tree from Git, require a
+clean normal checkout, and reject opposite-role cache, process, module,
+stylesheet, or artifact reuse.
+
+## Rendered evidence only when pixels should change
+
+Treat screenshots like Chromatic: require them only when the change is expected
+to yield a visual difference. Touching a user-visible surface is not enough.
+
+- **Parity / token swap / architecture-only.** Declare `none` on the execution
+  manifest glob, or `expected_unchanged` / `static_only` on the migration row.
+  No before/after artifacts, hosted URLs, or `visual.acceptance` receipt.
+  Optional captures, if present, must hash-match.
+- **Visual delta.** Declare `after` (new surface) or `before-after` (changed
+  existing surface), or a migration row with `changed` / `new_visible`. Those
+  rows need Storybook, docs, or Playwright artifacts bound to the tree.
+
+**Migration PRs** require a labeled before/after pair only for declared visual
+deltas. Use `python3 harness/cli.py migration-evidence verify` against a
+manifest under `.harness/runtime/evidence/`; embed hosted URLs in the PR body;
+never commit evidence binaries to the product branch.
+
+If a declared-delta surface cannot be reached live, render against realistic
+data and say so. A green typecheck alone is not rendered evidence for a
+declared visual delta.
+
+## Behavioral evidence
+
+Screenshots establish appearance. Executing the task establishes behavior.
+
+- A change to behavior with no visual delta still needs interaction evidence:
+  a Storybook `play` test, a Playwright run, or a recorded walkthrough of the
+  acceptance scenario. Declare the visual row `expected_unchanged` and attach
+  the interaction evidence separately.
+- When the plan declares a design intent, the sentinel's acceptance scenarios
+  are part of done. An unmet scenario stops the sweep the same way a failing
+  sentinel check does.
+- An agent's successful walkthrough shows the scenario can be completed. It
+  does not show that operators understand the experience. Record that gap in
+  the plan's Uncertainty field rather than closing it.
 
 ## Standing obligations
 
@@ -175,7 +273,11 @@ A task is done only when all of the following are true:
 
 1. Per-root verification commands for affected callers have been run and their
    output pasted or summarized with exit status.
-2. Rendered evidence is attached for any user-visible change.
+2. Rendered evidence is attached for every declared visual delta. Parity,
+   token-swap, and architecture-only work must not be blocked on screenshots.
+   When the plan declares a design intent, its acceptance scenarios have been
+   run against the sentinel and the interaction evidence is attached, even
+   where the pixels did not change.
 3. Every instance of the changed pattern is fixed at the shared layer, or
    explicitly deferred with a reason.
 4. Generated artifacts named by the plan or standing obligations are current.

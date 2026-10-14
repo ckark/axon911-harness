@@ -13,6 +13,8 @@ Configured consumers, in precedence order:
 - `axon911-frontend` — owns `@prepared/ui-*` post CORE-754; architectural authority
 - `prepared911` — consumes the published artifacts; its `turbo/packages/ui-*` is a deprecating mirror
 - `vault-core-ux`
+- `chroma` — colour and token generator; no product-UI obligations
+- `axon911-design` — hand-rolled `@axon911/design` package and its Storybook
 - `personal-harness`
 
 Root paths resolve from `HARNESS_ROOTS_JSON`, then `HARNESS_*_ROOT` environment
@@ -59,6 +61,7 @@ sorted and length-prefixed before SHA-256:
 - symlink targets
 - submodule OIDs
 - active plan hash
+- plan context hash (scope, base, mirror intent, path surfaces)
 - obligation-schema version
 - command-spec version
 - verifier version
@@ -73,10 +76,13 @@ against the post-command state.
 - The dispatcher is the only ledger writer.
 - The attesting wrapper is the only verification-receipt issuer.
 - `/implementation-check` is the only review-receipt issuer after validating
-  critic identity, report contract, tier, verdict, plan hash, and final
-  fingerprint.
-- A `register-plan` record selects the active plan hash and obligation-schema
-  version.
+  critic identity, on-disk report schema, tier, verdict, plan hash, report
+  hash, and final fingerprint via `issue-review-receipt --report`.
+- A `register-plan` record selects the active plan hash, tier, and optional
+  atomic plan profile (scope, `base_oid`, Prepared mirror intent, per-path
+  surface class). The profile's canonical hash binds fingerprints and receipts;
+  changing scope or predicates invalidates prior proof even when the Markdown
+  plan hash is unchanged.
 - Shareable receipts are content-addressed. Session-local event cursors and
   stop-loop counters are namespaced by worktree and session.
 
@@ -95,9 +101,9 @@ mandatory in all modes.
 
 ## Review cardinality
 
-When review is required, **one critic** satisfies any tier. The bespoke critic is
-`design-system-critic`; general review is delegated to Cursor `bugbot` and
-`security-review` outside the receipt gate.
+When review is required, **one critic** satisfies the gate at the **registered
+tier or higher**. A lower-tier review receipt does not satisfy a higher-tier
+gate.
 
 Tier is computed for blast-radius signaling and panel trigger decisions — see
 `docs/routing-matrix.md` — not for panel size.
@@ -119,9 +125,10 @@ Changed paths are then classified against it:
 - `undeclared` — changed but never named by the plan; silent scope creep
 - `unimplemented` — named by the plan but never touched; work claimed but absent
 
-`undeclared` warns while editing and blocks at a mutation gate.
-`unimplemented` blocks the turn from ending. With no registered scope every path
-is in scope.
+`undeclared` blocks at commit/push mutation gates. `unimplemented` blocks at
+stop. With no registered scope every path is in scope. When `base_oid` is set,
+conformance compares the full branch delta against that ref plus uncommitted
+worktree paths.
 
 ## Unmeasurable trees
 
@@ -136,10 +143,13 @@ Prepared911 and Axon each have independent IDs:
 - `ui-components.generated.ts` currency
 - docs API-registry currency
 - corresponding `ui-*` docs-page updates
-- rendered evidence
+- rendered evidence, only when the plan declares a visual delta
 
-Use each root's actual paths. Vault and personal-harness disable product UI
-obligations.
+Prepared911 `consumer-only` mirror intent suppresses Prepared docs-registry and
+docs-page obligations while retaining allowlist and surface-declared evidence.
+Axon `packages/ui` is authoritative. Screenshot gates follow declared
+evidence mode (`none` / `after` / `before-after`), not inferred visibility.
+Token swaps use `none` or migration `expected_unchanged`.
 
 ## Event handling
 
@@ -149,16 +159,16 @@ sanitized hook responses.
 
 | Event | Role |
 |---|---|
-| `sessionStart` | Observational; fire-and-forget; lazy init if absent |
-| `preCompact` | Observational |
+| `sessionStart` | Observational; may announce a compatible handoff state |
+| `preCompact` | Observational; safe session scaffold |
 | `afterFileEdit` | Invalidate receipts; cannot issue receipts |
 | `postToolUse` | Observe; cannot issue receipts |
 | `subagentStop` | Follow up only; unvalidated reports are not proof |
 | `beforeShellExecution` | Mutation preflight |
-| `stop` | Bounded follow-up when proof is missing or stale |
+| `stop` | Bounded follow-up when proof is missing or stale; does not invoke an LLM evidence verifier |
 
 Observational failures fail open with generic diagnostics. Gate failures deny
-with root, obligation IDs, and an exact recovery command.
+with root, structured recovery categories, and `/implementation-check`.
 
 ## Persistence
 
@@ -174,8 +184,16 @@ tool output, transcripts, customer data, or secrets.
 ## Agent-shell mutation preflight
 
 Best-effort classification of `git commit`, `git push`, `git -C`, absolute Git
-paths, RTK forms, `gt create`, and `gt submit`. Deny compound or ambiguous
-mutation commands. Commits and pushes must be separate commands.
+paths, RTK forms, `gt create`, and `gt submit`. Deny compound mutation commands.
+Read-only Git chains (`git log && git status`, etc.) are allowed when every
+stage uses a recognized read-only verb. Commits and pushes must be separate
+commands.
+
+For strict migrations, commit preflight requires plan conformance and
+nonvisual obligations but defers rendered-evidence and visual-acceptance
+obligations. Push preflight requires those receipts only when the plan
+declares a visual delta (`after`, `before-after`, or migration `changed` /
+`new_visible`). Token-swap and `expected_unchanged` rows do not gate push.
 
 ## Recovery command
 
@@ -183,4 +201,34 @@ mutation commands. Commits and pushes must be separate commands.
 /implementation-check
 ```
 
-Also: `python3 harness/cli.py verify`, `python3 harness/cli.py cost <transcript>`.
+Also: `python3 harness/cli.py verify --explain`, `python3 harness/cli.py ship-plan`,
+`python3 harness/cli.py preview-obligations`, `python3 harness/cli.py record-evidence`,
+`python3 harness/cli.py capture-ready`, `python3 harness/cli.py execution-preflight`,
+`python3 harness/cli.py issue-visual-acceptance-receipt`,
+`python3 harness/cli.py session-status`, `python3 harness/cli.py handoff`,
+`python3 harness/cli.py bundle verify`, `python3 harness/cli.py cost <transcript>`.
+
+## Capture preflight and visual acceptance
+
+Before a screenshot campaign, `capture-ready` (alias `execution-preflight`) checks
+the strict execution manifest, scope conformance, nonvisual verification receipts,
+final staged subject tree, migration manifest coverage, and session budget.
+
+Capture receipts (v4) are a strict union of `storybook`, `product-route`, and
+`not-applicable`. Executable receipts bind artifact bytes to `source_sha`,
+`source_tree`, `manifest_hash`, `change_id`, `content_origin`, `capture_scope`,
+clip bounds, DOM assertion results, role-exclusive process identity, and the
+exact story or route scenario. Versions 2 and 3 fail closed. Capture health
+receipts prove render readiness only; they do not substitute for visual
+acceptance.
+
+The verifier rederives commit and tree OIDs from Git and recomputes receipt and
+artifact hashes. A Before must match the execution-pinned trunk; an After must
+match the exact PR head and prove that a changed production path produced the
+asserted migration state.
+
+Declared visual-delta migration work requires one fresh-context visual
+acceptance receipt (`visual.acceptance`) issued by a reviewer session distinct
+from the authoring session. The report must pass every visual-delta
+`change_id`; per-change `FAIL` verdicts block ship even when the overall
+verdict is `PASS`. Parity rows do not require this receipt.

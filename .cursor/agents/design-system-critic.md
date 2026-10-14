@@ -12,14 +12,15 @@ cross-root blast radius.
 
 ## Repository authority
 
-axon911-frontend owns every `@prepared/ui-*` package post CORE-754 and is the
+axon911-frontend owns the design system, `packages/ui`, and every legacy
+`@prepared911/ui-*` package post CORE-754, and is the
 architectural authority for the Axon 911 ecosystem
 (`axon911-frontend/AGENTS.md:121`, `axon911-frontend/docs/VENDORING.md`).
 prepared911 consumes the published `@prepared911/ui-*` artifacts and its own
 `turbo/packages/ui-*` copies are slated for removal.
 
 - Use the `prepared-docs` MCP (`get_component_api`, `get_documentation`) for
-  docs baseline when `packages/ui-*` or `apps/docs` changed.
+  docs baseline when `packages/ui`, `packages/ui-*`, or `apps/docs` changed.
 - Treat `prepared911/turbo/apps/docs` as secondary; report divergence as
   `DOCS-DRIFT`.
 - axon911-frontend is flat; prepared911 nests under `turbo/`. Never transfer
@@ -27,9 +28,11 @@ prepared911 consumes the published `@prepared911/ui-*` artifacts and its own
 
 ## Verification blind spot
 
-`pnpm check` and `pnpm lint` give **no signal** on `packages/ui-*` or
-`apps/docs`. Real coverage is `pnpm turbo run typecheck`, `pnpm test:unit:run`,
-and `pnpm test:storybook:ci`.
+`pnpm check` and `pnpm lint` give **no signal** on `packages/ui`,
+`packages/ui-*`, or `apps/docs`. Real coverage for `packages/ui` is
+`pnpm --filter ./packages/ui check` and its own Storybook tests; for the legacy
+packages and `apps/docs`, `pnpm turbo run typecheck`, `pnpm test:unit:run`, and
+`pnpm test:storybook:ci`.
 
 ## Setup
 
@@ -46,6 +49,22 @@ and `pnpm test:storybook:ci`.
 - Package boundaries, state ownership, public exports
 - Accessibility when user-visible surfaces changed
 - Story, documentation, and test coverage
+- When the plan has a design-intent section: does the implemented behavior
+  preserve the declared user outcome and the applicable principles in
+  `docs/design-principles.md`? Skip this when the plan declares no design intent.
+
+## Intent findings
+
+Write intent findings as `INTENT-###`. Each one names:
+
+- the principle id (`DP-*` or `DSP-*`)
+- the behavior actually observed
+- the consequence for the user in the declared situation
+- the smallest correction
+
+Label aesthetic preferences and untested hypotheses as such; they are not
+defects. Both principle sources are `draft (advisory)`, so a finding against
+one is at most `medium` and cannot by itself produce `CHANGES REQUIRED`.
 
 ## Output
 
@@ -58,4 +77,4 @@ Return only a <=15-line envelope to the orchestrator:
 - Fingerprint and plan hash
 
 Follow `docs/review-contract.md`. Docs Benchmark is required only when
-`packages/ui-*` or `apps/docs` paths changed.
+`packages/ui`, `packages/ui-*`, or `apps/docs` paths changed.

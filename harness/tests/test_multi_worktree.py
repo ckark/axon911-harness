@@ -37,11 +37,11 @@ class MultiWorktreeTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.mkdtemp()
         self.primary = os.path.join(self.tmp, "axon911-frontend")
-        os.makedirs(os.path.join(self.primary, "packages/ui-core/src"))
+        os.makedirs(os.path.join(self.primary, "packages/ui/src"))
         _git(["init", "-q"], self.primary)
         _git(["config", "user.email", "d@e.com"], self.primary)
         _git(["config", "user.name", "D"], self.primary)
-        with open(os.path.join(self.primary, "packages/ui-core/src/index.ts"), "w") as f:
+        with open(os.path.join(self.primary, "packages/ui/src/index.ts"), "w") as f:
             f.write("export const a = 1;\n")
         _git(["add", "-A"], self.primary)
         _git(["commit", "-qm", "base"], self.primary)
@@ -105,7 +105,7 @@ class MultiWorktreeTests(unittest.TestCase):
         self.assertEqual(root_path, os.path.realpath(self.second))
 
     def test_nested_path_inside_the_second_worktree_still_resolves(self) -> None:
-        nested = os.path.join(self.second, "packages/ui-core/src/index.ts")
+        nested = os.path.join(self.second, "packages/ui/src/index.ts")
         root_id, root_path = identify_root(nested, self.roots)
         self.assertEqual(root_id, "axon911-frontend")
         self.assertEqual(root_path, os.path.realpath(self.second))
@@ -150,11 +150,11 @@ class MultiWorktreeTests(unittest.TestCase):
     # --- end-to-end: each worktree is scored against its own changes ---
 
     def test_each_worktree_is_gated_by_its_own_changes_not_the_primarys(self) -> None:
-        # The primary has an untracked ui-core file; the second worktree does
-        # not touch ui-core at all. Before threading root_path through every
+        # The primary has an untracked packages/ui file; the second worktree does
+        # not touch packages/ui at all. Before threading root_path through every
         # call site, both would have been evaluated against the *primary's*
         # tree regardless of which one the event actually named.
-        with open(os.path.join(self.primary, "packages/ui-core/src/widget.ts"), "w") as f:
+        with open(os.path.join(self.primary, "packages/ui/src/widget.ts"), "w") as f:
             f.write("export const Widget = 1;\n")
 
         primary_result = cursor.handle_event(

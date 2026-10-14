@@ -57,6 +57,14 @@ T0_MAX_CALL_SITES = 3
 # real surface change.
 SURFACE_PATTERNS = {
     "axon911-frontend": (
+        # `packages/ui`: `src/index.ts` is generated from the shared `src/registry.ts`
+        # and each component's or block's `registry.ts`, so those are the
+        # hand-maintained barrel. Enums live in `src/models/` and per-unit `models.ts`.
+        r"^packages/ui/package\.json$",
+        r"^packages/ui/src/registry\.ts$",
+        r"^packages/ui/src/(components|blocks)/[^/]+/registry\.ts$",
+        r"^packages/ui/src/models/",
+        r"^packages/ui/src/(components|blocks)/[^/]+/models\.ts$",
         r"^packages/ui-[^/]+/src/index\.ts$",
         r"^packages/ui-[^/]+/package\.json$",
         r"^packages/ui-[^/]+/src/models/",
@@ -69,6 +77,8 @@ SURFACE_PATTERNS = {
         r"^turbo/packages/ui-core/src/styles/",
     ),
     "vault-core-ux": (),
+    "chroma": (),
+    "axon911-design": (r"^src/index\.ts$",),
     "personal-harness": (),
 }
 
